@@ -10,18 +10,22 @@ class KubernetesObject:
             name=metadata.get("name"),
             namespace=metadata.get("namespace"),
             annotations=metadata.get("annotations"),
-            labels=metadata.get("labels")
+            labels=metadata.get("labels"),
+            resource_version = metadata.get("resourceVersion")
         )
 
-    def to_dictionary(self):
+    def to_dictionary(self, inclue_metadata : bool):
         contents = {}
         contents["apiVersion"] = self.api_version
         contents["kind"] = self.kind
         contents["metadata"] = {}
         contents["metadata"]["name"] = self.metadata.name
         contents["metadata"]["namespace"] = self.metadata.namespace
-        contents["metadata"]["annotations"] = self.metadata.annotations
-        contents["metadata"]["labels"] = self.metadata.labels
+        contents["metadata"]["resourceVersion"] = self.metadata.resource_version
+
+        if inclue_metadata:
+            contents["metadata"]["annotations"] = self.metadata.annotations
+            contents["metadata"]["labels"] = self.metadata.labels
         return contents 
 
 class AnalyticsWorkspaceValidity:
@@ -100,13 +104,27 @@ class AnalyticsWorkspace(KubernetesObject):
     def __init__(self, response : dict, api_version : str, kind : str):
          super().__init__(response, api_version, kind)
          self.spec = AnalyticsWorkspaceSpec(response.get("spec", {}))
+         self.status = AnalyticsWorkspaceStatus(response.get("status", {}))
 
-    def to_dictionary(self):
-        contents = super().to_dictionary()
-        contents["spec"] = self.spec.to_dictionary()
+    def to_dictionary(self, inclue_metadata = True, include_spec = True, include_status = True):
+        contents = super().to_dictionary(inclue_metadata)
+        if include_spec:
+            contents["spec"] = self.spec.to_dictionary()
+        
+        if include_status:
+            contents["status"] = self.status.to_dictionary()
+
         return contents 
 
+class AnalyticsWorkspaceStatus:
+    def __init__(self, json : dict):
+        self.status_text = json.get("statusText", "Waiting")
 
+    def to_dictionary(self):
+        contents = {}
+        contents["statusText"] = self.status_text
+        return contents
+    
 class AnalyticsWorkspaceSpec:
     def __init__(self, json : dict):
         self.display_name : str = json.get("displayName")
@@ -155,9 +173,11 @@ class AnalyticsWorkspaceBinding(KubernetesObject):
          super().__init__(response, api_version, kind)
          self.spec = AnalyticsWorkspaceBindingSpec(response["spec"])
 
-    def to_dictionary(self):
-        contents = super().to_dictionary()
-        contents["spec"] = self.spec.to_dictionary()
+    def to_dictionary(self, include_metadata : bool = True, include_spec = True):
+        contents = super().to_dictionary(include_metadata)
+        if include_spec:
+            contents["spec"] = self.spec.to_dictionary()
+
         return contents
 
 class AnalyticsWorkspaceBindingSpec:

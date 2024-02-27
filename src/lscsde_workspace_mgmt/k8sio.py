@@ -3,7 +3,8 @@ from kubernetes_asyncio import client
 from .objects import (
     WorkspaceVolumeStatus,
     AnalyticsWorkspace,
-    AnalyticsWorkspaceBinding
+    AnalyticsWorkspaceBinding,
+    AnalyticsWorkspaceStatus
 )
 from kubernetes_asyncio.client.models import (
     V1ObjectMeta,
@@ -44,6 +45,54 @@ class KubernetesNamespacedCustomClient:
             plural = self.plural,
             **kwargs
         )
+    
+    async def patch(self, namespace : str, name : str, body : dict):
+        return await self.api.patch_namespaced_custom_object(
+            group = self.group, 
+            version = self.version, 
+            namespace = namespace,
+            plural = self.plural, 
+            name = name, 
+            body = body
+            )
+    
+    async def patch_status(self, namespace : str, name : str, body : dict):
+        return await self.api.patch_namespaced_custom_object_status(
+            group = self.group,
+            version = self.version,
+            namespace = namespace,
+            plural = self.plural,
+            name = name,
+            body = body
+        )
+    
+    async def replace(self, namespace : str, name : str, body : dict):
+        return await self.api.replace_namespaced_custom_object(
+            group = self.group,
+            version = self.version,
+            namespace = namespace,
+            plural = self.plural,
+            name = name,
+            body = body
+        )
+    
+    async def create(self, namespace : str, body : dict):
+        return await self.api.create_namespaced_custom_object(
+            group = self.group,
+            version = self.version,
+            namespace = namespace,
+            plural = self.plural,
+            body = body
+        )
+    
+    async def delete(self, namespace : str, name : str):
+        return await self.api.delete_namespaced_custom_object(
+            group = self.group,
+            version = self.version,
+            namespace = namespace,
+            plural = self.plural,
+            name = name
+        )
 
 class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
     def __init__(self, k8s_api: client.CustomObjectsApi, log: Logger):
@@ -83,6 +132,59 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
     async def list(self, namespace, **kwargs):
         result = await super().list(namespace, **kwargs)
         return [AnalyticsWorkspace(item, self.get_api_version(), self.kind) for item in result["items"]]
+    
+    async def create(self, body : AnalyticsWorkspace):
+        result = await super().create(
+            namespace = body.metadata.namespace,
+            body = body.to_dictionary()
+        )
+        return AnalyticsWorkspace(result, self.get_api_version(), self.kind)
+
+    async def patch(self, body : AnalyticsWorkspace):
+        patch_body = [
+            {"op": "replace", "path": "/spec", "value": body.spec.to_dictionary()},
+            {"op": "replace", "path": "/status", "value": body.status.to_dictionary()}
+        ] 
+        result = await super().patch(
+            namespace = body.metadata.namespace,
+            name = body.metadata.name,
+            body = patch_body
+        )
+        return AnalyticsWorkspace(result, self.get_api_version(), self.kind)
+
+    async def patch_status(self, namespace : str, name : str, status : AnalyticsWorkspaceStatus):
+        body = [{"op": "replace", "path": "/status", "value": status.to_dictionary()}] 
+        result = await super().patch_status(
+            namespace = namespace,
+            name = name,
+            body = body
+        )
+        return AnalyticsWorkspace(result, self.get_api_version(), self.kind)
+
+    async def replace(self, body : AnalyticsWorkspace):
+        result = await super().replace(
+            namespace = body.metadata.namespace,
+            name = body.metadata.name,
+            body = body.to_dictionary()
+        )
+        return AnalyticsWorkspace(result, self.get_api_version(), self.kind)
+    
+    async def delete(self, body : AnalyticsWorkspace = None, namespace : str = None, name : str = None):
+        if body:
+            if not namespace:
+                namespace = body.metadata.namespace
+            if not name:
+                name = body.metadata.name
+        
+        await super().patch_status(
+            namespace = body.metadata.namespace,
+            name = body.metadata.name,
+            body = [{"op": "replace", "path": "/status/statusText", "value": "Deleting"}] 
+        )
+        return await super().delete(
+            namespace = body.metadata.namespace,
+            name = body.metadata.name
+        )
     
 class VolumeManager:
     def __init__(self,k8s_api : client.ApiClient, log):
