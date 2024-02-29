@@ -1,5 +1,8 @@
 from logging import Logger
 from kubernetes_asyncio import client
+from .exceptions import (
+    InvalidParameterException
+)
 from .objects import (
     WorkspaceVolumeStatus,
     AnalyticsWorkspace,
@@ -140,14 +143,29 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
         )
         return AnalyticsWorkspace(result, self.get_api_version(), self.kind)
 
-    async def patch(self, body : AnalyticsWorkspace):
-        patch_body = [
-            {"op": "replace", "path": "/spec", "value": body.spec.to_dictionary()},
-            {"op": "replace", "path": "/status", "value": body.status.to_dictionary()}
-        ] 
+    async def patch(self, namespace : str = None, name : str = None, patch_body : dict = None, body : AnalyticsWorkspace = None):
+        
+        if not patch_body:
+            if not body:
+                raise InvalidParameterException("Either namespace, name and patch_body or body must be provided")
+            patch_body = [
+                {"op": "replace", "path": "/spec", "value": body.spec.to_dictionary()},
+                {"op": "replace", "path": "/status", "value": body.status.to_dictionary()}
+            ]
+
+        if not namespace:
+            if not body:
+                raise InvalidParameterException("Either namespace, name and patch_body or body must be provided")
+            namespace = body.metadata.namespace
+
+        if not name:
+            if not body:
+                raise InvalidParameterException("Either namespace, name and patch_body or body must be provided")
+            name = body.metadata.name
+            
         result = await super().patch(
-            namespace = body.metadata.namespace,
-            name = body.metadata.name,
+            namespace = namespace,
+            name = name,
             body = patch_body
         )
         return AnalyticsWorkspace(result, self.get_api_version(), self.kind)

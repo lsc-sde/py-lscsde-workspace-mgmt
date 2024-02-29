@@ -3,3 +3,8 @@ class NoAssignedValidWorkspaces(Exception):
         self.user = user
         self.message = f"User {user} does not have any valid workspaces assigned"
         super().__init__(self.message)
+
+class InvalidParameterException(Exception):
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)

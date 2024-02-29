@@ -82,7 +82,7 @@ class TestWorkspaceClient:
             )
         print(f"patched_status_workspace = {patched_status_workspace}")
         patched_status_workspace.spec.display_name = "Patched"
-        patched_workspace : AnalyticsWorkspace = await client.patch(patched_status_workspace)
+        patched_workspace : AnalyticsWorkspace = await client.patch(body = patched_status_workspace)
         patched_workspace.spec.display_name = "Replaced"
         replaced_workspace : AnalyticsWorkspace = await client.replace(patched_workspace)
         deleted_workspace = await client.delete(body = replaced_workspace)
