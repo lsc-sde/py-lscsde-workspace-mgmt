@@ -8,3 +8,10 @@ class InvalidParameterException(Exception):
     def __init__(self, message):
         self.message = message
         super().__init__(self.message)
+
+class WorkspaceNotFoundException(Exception):
+    def __init__(self, namespace, name):
+        self.name = name
+        self.namespace = namespace
+        self.message = f"workspace label is not populated for pod/{name} on {namespace} namespace"
+        super().__init__(self.message)

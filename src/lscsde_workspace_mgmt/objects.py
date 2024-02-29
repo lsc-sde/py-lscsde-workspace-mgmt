@@ -70,6 +70,7 @@ class JupyterWorkspaceSpec:
         self.tolerations : dict = json.get("tolerations")
         self.resources : dict = json.get("resources")
         self.additional_storage = []
+        self.persistent_volume_claim : JupyterWorkspacePersistentVolumeClaim = JupyterWorkspacePersistentVolumeClaim(json.get("persistentVolumeClaim", {}))
         additional_storage_json : list = json.get("additionalStorage")
         if additional_storage_json:
             for storage in additional_storage_json:
@@ -111,12 +112,77 @@ class AnalyticsWorkspace(KubernetesObject):
         if include_spec:
             contents["spec"] = self.spec.to_dictionary()
         
-        if include_status:
+        if include_status and self.status:
             contents["status"] = self.status.to_dictionary()
 
         return contents 
+    
+    def days_until_expiry(self, time_str):
+        ws_end_date = datetime.strptime(time_str, "%Y-%m-%d")
+        ws_days_left: timedelta = ws_end_date - datetime.today()
+        return ws_days_left
+    
+    def to_workspace_dict(self):
+        contents = {}
+        contents["display_name"] = self.spec.display_name
+        contents["description"] = self.spec.description
+        
+        if self.spec.jupyter_workspace:
+            contents["kubespawner_override"] = {}
+            contents["kubespawner_override"]["image"] = self.spec.jupyter_workspace.image
+            extra_labels = {}
+            if self.spec.jupyter_workspace.extra_labels:
+                extra_labels = self.spec.jupyter_workspace.extra_labels.copy()
+            extra_labels["workspace"] = self.metadata.name
+            contents["kubespawner_override"]["extra_labels"] = extra_labels
+
+            if self.spec.jupyter_workspace.resources:
+                mem_guarantee = self.spec.jupyter_workspace.resources.get("requests").get("memory")
+                if mem_guarantee:
+                    contents["kubespawner_override"]["mem_guarantee"] = mem_guarantee
+
+                mem_limit = self.spec.jupyter_workspace.resources.get("limits").get("memory")
+                if mem_limit:
+                    contents["kubespawner_override"]["mem_limit"] = mem_limit
+
+                cpu_guarantee = self.spec.jupyter_workspace.resources.get("requests").get("cpu")
+                if cpu_guarantee:
+                    contents["kubespawner_override"]["cpu_guarantee"] = cpu_guarantee
+
+                cpu_limit = self.spec.jupyter_workspace.resources.get("limits").get("cpu")
+                if cpu_limit:
+                    contents["kubespawner_override"]["cpu_limit"] = cpu_limit
+
+            default_url = self.spec.jupyter_workspace.default_uri
+            if default_url:
+                contents["kubespawner_override"]["default_url"] = default_url
+
+            if self.spec.jupyter_workspace.node_selector:
+                contents["kubespawner_override"]["node_selector"] = self.spec.jupyter_workspace.node_selector
+
+            if self.spec.jupyter_workspace.tolerations:
+                contents["kubespawner_override"]["tolerations"] = self.spec.jupyter_workspace.tolerations
+            
+        contents["slug"] = self.metadata.name
+        contents["start_date"] = self.spec.validity.available_from
+        contents["end_date"] = self.spec.validity.expires
+        contents["ws_days_left"] = self.days_until_expiry(self.spec.validity.expires)
+        return contents
 
 class AnalyticsWorkspaceStatus:
+    def __init__(self, json : dict):
+        self.status_text : str = json.get("statusText", "Waiting")
+        self.persistent_volume_claim : str = json.get("persistentVolumeClaim")
+        self.additional_storage : dict[str, str] = json.get("additionalStorage")
+
+    def to_dictionary(self):
+        contents = {}
+        contents["statusText"] = self.status_text
+        contents["persistentVolumeClaim"] = self.persistent_volume_claim
+        contents["additionalStorage"] = self.additional_storage
+        return contents
+    
+class AnalyticsWorkspaceBindingStatus:
     def __init__(self, json : dict):
         self.status_text = json.get("statusText", "Waiting")
 
@@ -125,15 +191,29 @@ class AnalyticsWorkspaceStatus:
         contents["statusText"] = self.status_text
         return contents
     
+
+class JupyterWorkspacePersistentVolumeClaim:
+    def __init__(self, json : dict):
+        self.name : str = json.get("name")
+        self.storage_class_name : str = json.get("storageClassName")
+
+    def to_dictionary(self):
+        contents = {}
+        contents["name"] = self.name
+        contents["storageClassName"] = self.storage_class_name
+        return contents
+    
 class AnalyticsWorkspaceSpec:
     def __init__(self, json : dict):
         self.display_name : str = json.get("displayName")
         self.description : str = json.get("description")
         self.validity = AnalyticsWorkspaceValidity(json.get("validity", {}))
 
+        self.jupyter_workspace : JupyterWorkspaceSpec = None
         jupyter_workspace = json.get("jupyterWorkspace", {})
         if jupyter_workspace:
             self.jupyter_workspace = JupyterWorkspaceSpec(jupyter_workspace)
+
 
         virtual_machine_workspace = json.get("virtualMachineWorkspace", {})
         self.virtual_machine_workspace : VirtualMachineWorkspaceSpec = None
@@ -170,13 +250,17 @@ class AnalyticsWorkspaceBindingClaim:
 
 class AnalyticsWorkspaceBinding(KubernetesObject):
     def __init__(self, response : dict, api_version : str, kind : str):
-         super().__init__(response, api_version, kind)
-         self.spec = AnalyticsWorkspaceBindingSpec(response["spec"])
+        super().__init__(response, api_version, kind)
+        self.spec = AnalyticsWorkspaceBindingSpec(response["spec"])
+        self.status = AnalyticsWorkspaceBindingStatus(response.get("status", {}))
 
-    def to_dictionary(self, include_metadata : bool = True, include_spec = True):
+    def to_dictionary(self, include_metadata : bool = True, include_spec = True, include_status = True):
         contents = super().to_dictionary(include_metadata)
         if include_spec:
             contents["spec"] = self.spec.to_dictionary()
+
+        if include_status and self.status:
+            contents["status"] = self.status.to_dictionary()
 
         return contents
 
@@ -185,6 +269,7 @@ class AnalyticsWorkspaceBindingSpec:
         self.workspace = json.get("workspace")
         self.expires = json.get("expires")
         self.username = json.get("username")
+        self.comments = json.get("comments")
         self.claims = []
         claims = json.get("claims")
         if claims:
@@ -200,15 +285,11 @@ class AnalyticsWorkspaceBindingSpec:
         
         if self.username:
             contents["username"] = self.username
+        
+        if self.comments:
+            contents["comments"] = self.comments
 
         if self.claims:
             claims = [claim.to_dictionary() for claim in claims]
-        
-        return contents
 
-class WorkspaceVolumeStatus:
-    def __init__(self, name : str, namespace: str, exists : bool):
-        self.name = name
-        self.exists = exists
-        self.namespace = namespace
-        
+        return contents

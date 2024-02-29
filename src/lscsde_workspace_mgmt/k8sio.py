@@ -4,10 +4,10 @@ from .exceptions import (
     InvalidParameterException
 )
 from .objects import (
-    WorkspaceVolumeStatus,
     AnalyticsWorkspace,
     AnalyticsWorkspaceBinding,
-    AnalyticsWorkspaceStatus
+    AnalyticsWorkspaceStatus,
+    AnalyticsWorkspaceBindingStatus
 )
 from kubernetes_asyncio.client.models import (
     V1ObjectMeta,
@@ -17,6 +17,7 @@ from kubernetes_asyncio.client.models import (
     V1PersistentVolumeClaim,
     V1PersistentVolumeClaimSpec,
     V1PersistentVolumeClaimVolumeSource,
+    V1PersistentVolumeClaimList
 )
 
 class KubernetesNamespacedCustomClient:
@@ -117,6 +118,104 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
         result = await super().list(namespace, **kwargs)
         return [AnalyticsWorkspaceBinding(item, self.get_api_version(), self.kind) for item in result["items"]]
 
+    def format_username_as_label(self, username : str):
+        return username.casefold().replace("@","___")
+
+    async def list_by_username(self, namespace, username):
+        formatted_username = self.format_username_as_label(username)
+        no_label = await self.list(namespace = namespace, label_selector = f"!xlscsde.nhs.uk/username")
+        for item in no_label:
+            if item.spec.username:
+                if not item.metadata.labels:
+                    patch_body = [{"op": "add", "path": "/metadata/labels", "value": { "xlscsde.nhs.uk/username" : self.format_username_as_label(item.spec.username) }}]
+                else:
+                    patch_body = [{"op": "add", "path": "/metadata/labels/xlscsde.nhs.uk~1username", "value": self.format_username_as_label(item.spec.username) }]
+
+                patch_response = await self.patch(
+                    namespace = item.metadata.namespace, 
+                    name = item.metadata.name, 
+                    patch_body = patch_body
+                    )
+
+        return await self.list(namespace = namespace, label_selector = f"xlscsde.nhs.uk/username={self.format_username_as_label(username)}")
+
+    async def create(self, body : AnalyticsWorkspaceBinding):
+        contents = body.to_dictionary()
+        contents["metadata"]["labels"]["xlscsde.nhs.uk/username"] = self.format_username_as_label(body.spec.username)
+        result = await super().create(
+            namespace = body.metadata.namespace,
+            body = contents
+        )
+        return AnalyticsWorkspaceBinding(result, self.get_api_version(), self.kind)
+
+    async def patch(self, namespace : str = None, name : str = None, patch_body : dict = None, body : AnalyticsWorkspaceBinding = None):
+        if not patch_body:
+            if not body:
+                raise InvalidParameterException("Either namespace, name and patch_body or body must be provided")
+            patch_body = [
+                {"op": "replace", "path": "/spec", "value": body.spec.to_dictionary()},
+                {"op": "replace", "path": "/status", "value": body.status.to_dictionary()}
+            ]
+
+        if not namespace:
+            if not body:
+                raise InvalidParameterException("Either namespace, name and patch_body or body must be provided")
+            namespace = body.metadata.namespace
+
+        if not name:
+            if not body:
+                raise InvalidParameterException("Either namespace, name and patch_body or body must be provided")
+            name = body.metadata.name
+            
+        result = await super().patch(
+            namespace = namespace,
+            name = name,
+            body = patch_body
+        )
+        return AnalyticsWorkspaceBinding(result, self.get_api_version(), self.kind)
+
+    async def patch_status(self, namespace : str, name : str, status : AnalyticsWorkspaceBindingStatus):
+        body = [{"op": "replace", "path": "/status", "value": status.to_dictionary()}] 
+        result = await super().patch_status(
+            namespace = namespace,
+            name = name,
+            body = body
+        )
+        return AnalyticsWorkspaceBinding(result, self.get_api_version(), self.kind)
+
+    async def replace(self, body : AnalyticsWorkspaceBinding):
+        contents = body.to_dictionary()
+        contents["metadata"]["labels"]["xlscsde.nhs.uk/username"] = self.format_username_as_label(body.spec.username)
+        result = await super().replace(
+            namespace = body.metadata.namespace,
+            name = body.metadata.name,
+            body = contents
+        )
+        return AnalyticsWorkspaceBinding(result, self.get_api_version(), self.kind)
+    
+    async def delete(self, body : AnalyticsWorkspaceBinding = None, namespace : str = None, name : str = None):
+        if body:
+            if not namespace:
+                namespace = body.metadata.namespace
+            if not name:
+                name = body.metadata.name
+        
+        patch_body = [{"op": "replace", "path": "/status/statusText", "value": "Deleting"}] 
+
+        current = await super().get(namespace, name)
+        if not current.get("status"):
+            patch_body = [{"op": "add", "path": "/status", "value": { "statusText" : "Deleting" }}] 
+            
+        await super().patch_status(
+            namespace = body.metadata.namespace,
+            name = body.metadata.name,
+            body = patch_body
+        )
+        return await super().delete(
+            namespace = body.metadata.namespace,
+            name = body.metadata.name
+        )
+
 class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
     def __init__(self, k8s_api: client.CustomObjectsApi, log: Logger):
         super().__init__(
@@ -144,7 +243,6 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
         return AnalyticsWorkspace(result, self.get_api_version(), self.kind)
 
     async def patch(self, namespace : str = None, name : str = None, patch_body : dict = None, body : AnalyticsWorkspace = None):
-        
         if not patch_body:
             if not body:
                 raise InvalidParameterException("Either namespace, name and patch_body or body must be provided")
@@ -194,87 +292,88 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
             if not name:
                 name = body.metadata.name
         
+        
+        patch_body = [{"op": "replace", "path": "/status/statusText", "value": "Deleting"}] 
+
+        current = await super().get(namespace, name)
+        if not current.get("status"):
+            patch_body = [{"op": "add", "path": "/status", "value": { "statusText" : "Deleting" }}] 
+
         await super().patch_status(
             namespace = body.metadata.namespace,
             name = body.metadata.name,
-            body = [{"op": "replace", "path": "/status/statusText", "value": "Deleting"}] 
+            body = patch_body
         )
         return await super().delete(
             namespace = body.metadata.namespace,
             name = body.metadata.name
         )
     
-class VolumeManager:
-    def __init__(self,k8s_api : client.ApiClient, log):
-        self.v1_api = client.CoreV1Api(k8s_api)
+class PersistentVolumeClaimClient:
+    def __init__(self, api_client : client.ApiClient, log : Logger):
+        self.api = client.CoreV1Api(api_client)
         self.log = log
         
-    async def get_workspace_volume_status(self, workspace_name: str, namespace: str):
-        name = f"jupyter-{workspace_name}"
-        exists = True
-        try:
-            self.log.info(f"Checking if PVC {name} on {namespace} exists")
-            response = await self.v1_api.read_namespaced_persistent_volume_claim(name, namespace)
-            self.log.info(f"response: {response}")
-
-        except client.exceptions.ApiException as e:
-            if e.status == 404:
-                exists = False
-            else:
-                raise e
+    async def get(self, name: str, namespace: str) -> V1PersistentVolumeClaim:
+        self.log.info(f"Searching for PVC {name} on {namespace} exists")
+        response : V1PersistentVolumeClaimList = await self.api.list_namespaced_persistent_volume_claim(namespace, field_selector = f"metadata.name={name}")
         
-        return WorkspaceVolumeStatus(name, namespace, exists)
+        if len(response.items) == 0:
+            return None
+        
+        return response.items[0]
 
-    async def create_workspace_volume_if_not_exists(self, workspace_name: str, namespace: str):
-        status = await self.get_workspace_volume_status(workspace_name, namespace)
-        if not status.exists:
-            self.log.info(f"PVC {status.name} on {status.namespace} does not exist.")
+    async def create_if_not_exists(self, name: str, namespace: str, storage_class_name : str, labels: dict[str, str] = {}, access_modes : list[str]=["ReadWriteMany"], storage_requested : str = "10Gi"):
+        pvc = await self.get(name, namespace)
+        if not pvc:
+            self.log.info(f"PVC {name} on {namespace} does not exist.")
             
             pvc = V1PersistentVolumeClaim(
                 metadata = V1ObjectMeta(
-                    name=status.name,
+                    name=name,
                     namespace= namespace,
-                    labels={
-                        "workspace.xlscsde.nhs.uk/workspace" : workspace_name,
-                        "workspace.xlscsde.nhs.uk/storageType" : "workspace",
-                    }
+                    labels = labels
                 ),
                 spec=V1PersistentVolumeClaimSpec(
-                    storage_class_name="jupyter-default",
-                    access_modes=["ReadWriteMany"],
+                    storage_class_name = storage_class_name,
+                    access_modes = access_modes,
                     resources= {
                         "requests": { 
-                            "storage": "10Gi"
+                            "storage": storage_requested
                         }
                     }
                 )
             )
-            await self.v1_api.create_namespaced_persistent_volume_claim(namespace, pvc)
-            status.exists = True
-        else: 
-            self.log.info(f"PVC {status.name} on {status.namespace} already exists.")
+            return await self.api.create_namespaced_persistent_volume_claim(namespace, pvc)
 
-        return status
+        return pvc
     
-    async def mount_volume(self, pod: V1Pod, storage_name : str, namespace: str, read_only : bool = False):
+    async def mount(self, pod: V1Pod, storage_name : str, namespace: str, storage_class_name : str, mount_path : str, read_only : bool = False) -> V1Pod:
         self.log.info(f"Attempting to mount {storage_name} on {namespace}...")
-        storage = await self.create_workspace_volume_if_not_exists(storage_name, namespace)
+        storage : V1PersistentVolumeClaim = await self.create_if_not_exists(storage_name, namespace, storage_class_name)
 
-        if storage:
-            volume = V1Volume(
-                name = storage_name,
-                persistent_volume_claim=V1PersistentVolumeClaimVolumeSource(
-                    claim_name=storage.name
-                )
+        volume = V1Volume(
+            name = storage_name,
+            persistent_volume_claim=V1PersistentVolumeClaimVolumeSource(
+                claim_name=storage.metadata.name
             )
+        )
 
-            mount_path= f"/home/jovyan/{storage_name}"
-            volume_mount = V1VolumeMount(
-                name = storage_name,
-                mount_path= mount_path,
-                read_only = read_only
-            )
-            pod.spec.volumes.append(volume)
-            pod.spec.containers[0].volume_mounts.append(volume_mount)
+        if mount_path == "":
+            mount_path= f"/mnt/{storage_name}"
 
-            self.log.info(f"Successfully mounted {storage.name} to {mount_path}.")
+        volume_mount = V1VolumeMount(
+            name = storage_name,
+            mount_path= mount_path,
+            read_only = read_only
+        )
+        if not pod.spec.volumes:
+            pod.spec.volumes = []
+        pod.spec.volumes.append(volume)
+        if not pod.spec.containers[0].volume_mounts:
+            pod.spec.containers[0].volume_mounts = []
+        pod.spec.containers[0].volume_mounts.append(volume_mount)
+
+        self.log.info(f"Successfully mounted {storage.metadata.name} to {mount_path}.")
+
+        return pod
