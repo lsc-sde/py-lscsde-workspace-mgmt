@@ -29,13 +29,14 @@ Issues = "https://github.com/lsc-sde/py-lscsde-workspace-mgmt/issues"
 source = ["src"]
 
 [tool.hatch.version]
-path = "src/kubespawner_keycloak/_version.py"
+path = "src/lscsde_workspace_mgmt/_version.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/kubespawner_keycloak"]
+packages = ["src/lscsde_workspace_mgmt"]
 
 
 [tool.hatch.build]
 exclude = [
   "test.py",
+  "integrationtest.py"
 ]
