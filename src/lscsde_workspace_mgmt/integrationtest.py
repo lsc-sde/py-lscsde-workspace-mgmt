@@ -15,6 +15,26 @@ from .managers import AnalyticsWorkspaceManager
 from logging import Logger
 
 class ObjectsMocker:
+    
+    async def create_workspace(self, client : AnalyticsWorkspaceClient, name : str, display_name : str = "Example jupyter workspace"):
+        mocked_workspace = self.mock_workspace(name = name)
+        translated_workspace = AnalyticsWorkspace(mocked_workspace, client.get_api_version(), client.kind)
+        list_workspaces = await client.list("default", field_selector = f"metadata.name={translated_workspace.metadata.name}")
+        if len(list_workspaces) > 0:
+            await client.delete(body = list_workspaces[0])
+        
+        return await client.create(translated_workspace)
+    
+    async def create_workspace_binding(self, client : AnalyticsWorkspaceBindingClient, name : str, username : str, workspace : str, append_label : bool = True):
+        omocker = ObjectsMocker()
+        mocked_workspace_binding = omocker.mock_workspace_binding(name, username, workspace)
+        translated_workspace_binding = AnalyticsWorkspaceBinding(mocked_workspace_binding, client.get_api_version(), client.kind)
+        list_workspace_bindings = await client.list("default", field_selector = f"metadata.name={translated_workspace_binding.metadata.name}")
+        if len(list_workspace_bindings) > 0:
+            await client.delete(body = list_workspace_bindings[0])
+
+        return await client.create(translated_workspace_binding, append_label = append_label)
+        
     def mock_workspace_binding(self, name, username, workspace):
         return {
             'apiVersion': 'xlscsde.nhs.uk/v1',
@@ -63,14 +83,15 @@ class ObjectsMocker:
         created_workspace : AnalyticsWorkspace = await client.create(translated_workspace)
         return created_workspace
         
-    async def recreate_workspace_binding(self, client : AnalyticsWorkspaceBindingClient, binding = dict[str, any]):
+    async def recreate_workspace_binding(self, client : AnalyticsWorkspaceBindingClient, binding = dict[str, any], append_label : bool = True):
         translated_workspace_binding = AnalyticsWorkspaceBinding(binding, client.get_api_version(), client.kind)
         list_workspace_bindings = await client.list("default", field_selector = f"metadata.name={translated_workspace_binding.metadata.name}")
         if len(list_workspace_bindings) > 0:
             await client.delete(body = list_workspace_bindings[0])
             
-        created_workspace_binding : AnalyticsWorkspaceBinding = await client.create(translated_workspace_binding)
+        created_workspace_binding : AnalyticsWorkspaceBinding = await client.create(translated_workspace_binding, append_label)
         return created_workspace_binding
+
 class TestWorkspaceClient:
     log = Logger("TestWorkspaceClient")
 
@@ -87,15 +108,22 @@ class TestWorkspaceClient:
         name = "example-jupyter-workspace"
         namespace = "default"
         self.log.info("Getting {name} from {namespace} namespace")
+        omocker = ObjectsMocker()
+        mocked_workspace = omocker.mock_workspace(name = name)
+        translated_workspace = AnalyticsWorkspace(mocked_workspace, client.get_api_version(), client.kind)
+        list_workspaces = await client.list("default", field_selector = f"metadata.name={translated_workspace.metadata.name}")
+        if len(list_workspaces) > 0:
+            await client.delete(body = list_workspaces[0])
+        created_workspace = await client.create(translated_workspace)
         response = await client.get(namespace, name)
         assert name == response.metadata.name
         assert namespace == response.metadata.namespace
-        assert "example-jupyter-workspace" == response.metadata.name 
         assert "jupyter/datascience-notebook:latest" == response.spec.jupyter_workspace.image
         assert "2024-02-26" == response.spec.validity.available_from
         assert "2124-02-26" == response.spec.validity.expires
         assert "Example jupyter workspace" == response.spec.display_name
         assert "This is an example jupyter workspace, and can be largely ignored\n" == response.spec.description
+        await client.delete(body = created_workspace)
     
     @pytest.mark.asyncio
     async def test_list(self):
@@ -107,20 +135,30 @@ class TestWorkspaceClient:
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.log.info("Setting up AnalyticsWorkspaceClient")
         client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log)
-        name = "example-jupyter-workspace"
         namespace = "default"
+        name = "test-workspace-list"
+        omocker = ObjectsMocker()
+        mocked_workspace = omocker.mock_workspace(name = name)
+        translated_workspace = AnalyticsWorkspace(mocked_workspace, client.get_api_version(), client.kind)
+        list_workspaces = await client.list("default", field_selector = f"metadata.name={translated_workspace.metadata.name}")
+        if len(list_workspaces) > 0:
+            await client.delete(body = list_workspaces[0])
+
+        created_workspace = await client.create(translated_workspace)
         self.log.info("Getting {name} from {namespace} namespace")
-        responses = await client.list(namespace, field_selector = f"metadata.name={name}")
+        responses = await client.list(namespace, field_selector = f"metadata.name={translated_workspace.metadata.name}")
         response = responses[0]
         assert name == response.metadata.name
         assert namespace == response.metadata.namespace
-        assert "example-jupyter-workspace" == response.metadata.name 
+        assert name == response.metadata.name 
         assert "jupyter/datascience-notebook:latest" == response.spec.jupyter_workspace.image
         assert "2024-02-26" == response.spec.validity.available_from
         assert "2124-02-26" == response.spec.validity.expires
         assert "Example jupyter workspace" == response.spec.display_name
         assert "This is an example jupyter workspace, and can be largely ignored\n" == response.spec.description
-    
+        
+        await client.delete(body = created_workspace)
+
     @pytest.mark.asyncio
     async def test_crud(self):
         self.log.info("Getting Configuration")
@@ -154,6 +192,37 @@ class TestWorkspaceClient:
         deleted_workspace = await client.delete(body = replaced_workspace)
         print(deleted_workspace)
 
+    @pytest.mark.asyncio
+    async def test_list_by_username_unlinked_workspace(self):
+        self.log.info("Getting Configuration")
+        configuration = await load_kube_config()
+        print(f"configuration = {configuration}")
+        self.log.info("Connecting to client")
+        api_client = ApiClient()
+        custom_objects_api = CustomObjectsApi(api_client=api_client)
+        self.log.info("Setting up AnalyticsWorkspaceClient")
+        workspace_client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log)
+        binding_client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log)
+        omocker = ObjectsMocker()
+        mocked_workspace1 = omocker.mock_workspace("test-list-by-username-unlinked-workspace-1")
+        mocked_workspace2 = omocker.mock_workspace("test-list-by-username-unlinked-workspace-2")
+        mocked_workspace_binding1 = omocker.mock_workspace_binding("integration-test-crud-unlinked-workspace-1", "integration-test-crud-unlinked-workspace-1", mocked_workspace1["metadata"]["name"])
+        mocked_workspace_binding2 = omocker.mock_workspace_binding("integration-test-crud-unlinked-workspace-2", "integration-test-crud-unlinked-workspace-1", mocked_workspace2["metadata"]["name"])
+        mocked_workspace_binding3 = omocker.mock_workspace_binding("integration-test-crud-unlinked-workspace-3", "integration-test-crud-unlinked-workspace-2", mocked_workspace2["metadata"]["name"])
+        mocked_workspace_binding3 = omocker.mock_workspace_binding("integration-test-crud-unlinked-workspace-4", "integration-test-crud-unlinked-workspace-1", mocked_workspace1["metadata"]["name"])
+        workspace1 = await omocker.recreate_workspace(client = workspace_client, workspace = mocked_workspace1)
+        workspace_binding1 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding1, append_label = False)
+        workspace_binding2 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding2, append_label = False)
+        workspace_binding3 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding3, append_label = False)
+
+        workspaces = await workspace_client.list_by_username(binding_client = binding_client, namespace = "default", username = "integration-test-crud-unlinked-workspace-1")
+        assert len(workspaces) == 1
+
+        await workspace_client.delete(body = workspace1)
+        await binding_client.delete(body = workspace_binding1)
+        await binding_client.delete(body = workspace_binding2)
+        await binding_client.delete(body = workspace_binding3)
+        
 class TestWorkspaceBindingClient:
     log = Logger("TestWorkspaceBindingClient")
 
@@ -167,15 +236,22 @@ class TestWorkspaceBindingClient:
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.log.info("Setting up AnalyticsWorkspaceBindingClient")
         client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log)
-        name = "example-jupyter-workspace-shaun-turner"
+        name = "test-workspacebinding-get"
         namespace = "default"
+        username = "test.user"
+        workspace = "some-workspace"
+        omocker = ObjectsMocker()
+        
+        created_workspace_binding : AnalyticsWorkspaceBinding = await omocker.create_workspace_binding(client, name, username, workspace)
+        
         self.log.info("Getting {name} from {namespace} namespace")
         response = await client.get(namespace, name)
         assert name == response.metadata.name
         assert namespace == response.metadata.namespace
-        assert "example-jupyter-workspace" == response.spec.workspace
-        assert "shaun.turner1@nhs.net" == response.spec.username
+        assert username == response.spec.username
+        assert workspace == response.spec.workspace
         assert "2124-02-26" == response.spec.expires
+        await client.delete(body = created_workspace_binding)
         
     @pytest.mark.asyncio
     async def test_list(self):
@@ -187,16 +263,22 @@ class TestWorkspaceBindingClient:
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.log.info("Setting up AnalyticsWorkspaceBindingClient")
         client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log)
-        name = "example-jupyter-workspace-shaun-turner"
+        name = "test-workspacebinding-list"
+        username = "test.user"
+        workspace = "some-workspace"
         namespace = "default"
+        omocker = ObjectsMocker()
+        created_workspace_binding : AnalyticsWorkspaceBinding = await omocker.create_workspace_binding(client, name, username, workspace)
+        
         self.log.info("Getting {name} from {namespace} namespace")
         responses = await client.list(namespace, field_selector = f"metadata.name={name}")
         response = responses[0]
         assert name == response.metadata.name
         assert namespace == response.metadata.namespace
-        assert "example-jupyter-workspace" == response.spec.workspace
-        assert "shaun.turner1@nhs.net" == response.spec.username
+        assert username == response.spec.username
+        assert workspace == response.spec.workspace
         assert "2124-02-26" == response.spec.expires
+        await client.delete(body = created_workspace_binding)
         
     @pytest.mark.asyncio
     async def test_crud(self):
@@ -209,14 +291,8 @@ class TestWorkspaceBindingClient:
         self.log.info("Setting up AnalyticsWorkspaceClient")
         client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log)
         omocker = ObjectsMocker()
-        mocked_workspace_binding = omocker.mock_workspace_binding("integration-test-crud", "test.user", "some-workspace")
-        translated_workspace_binding = AnalyticsWorkspaceBinding(mocked_workspace_binding, client.get_api_version(), client.kind)
-        list_workspace_bindings = await client.list("default", field_selector = f"metadata.name={translated_workspace_binding.metadata.name}")
-        if len(list_workspace_bindings) > 0:
-            await client.delete(body = list_workspace_bindings[0])
-            
 
-        created_workspace_binding : AnalyticsWorkspaceBinding = await client.create(translated_workspace_binding)
+        created_workspace_binding = await omocker.create_workspace_binding(client, "integration-test-crud", "test.user", "some-workspace")
         created_workspace_binding.status.status_text = "Provisioning"
         patched_status_workspace_binding : AnalyticsWorkspaceBinding = await client.patch_status(
             namespace = created_workspace_binding.metadata.namespace,
@@ -250,9 +326,9 @@ class TestWorkspaceBindingClient:
         mocked_workspace_binding3 = omocker.mock_workspace_binding("integration-test-crud3", "integration-test-crud2", mocked_workspace2["metadata"]["name"])
         workspace1 = await omocker.recreate_workspace(client = workspace_client, workspace = mocked_workspace1)
         workspace2 = await omocker.recreate_workspace(client = workspace_client, workspace = mocked_workspace2)
-        workspace_binding1 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding1)
-        workspace_binding2 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding2)
-        workspace_binding3 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding3)
+        workspace_binding1 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding1, append_label = False)
+        workspace_binding2 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding2, append_label = False)
+        workspace_binding3 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding3, append_label = False)
 
         workspace_bindings_list = await binding_client.list_by_username("default", "integration-test-crud1")
         assert len(workspace_bindings_list) == 2
@@ -263,6 +339,71 @@ class TestWorkspaceBindingClient:
         await binding_client.delete(body = workspace_binding2)
         await binding_client.delete(body = workspace_binding3)
         
+    @pytest.mark.asyncio
+    async def test_list_by_username_apostrophe(self):
+        self.log.info("Getting Configuration")
+        configuration = await load_kube_config()
+        print(f"configuration = {configuration}")
+        self.log.info("Connecting to client")
+        api_client = ApiClient()
+        custom_objects_api = CustomObjectsApi(api_client=api_client)
+        self.log.info("Setting up AnalyticsWorkspaceClient")
+        workspace_client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log)
+        binding_client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log)
+        omocker = ObjectsMocker()
+        mocked_workspace1 = omocker.mock_workspace("test-list-by-username-apostrophe-1")
+        mocked_workspace2 = omocker.mock_workspace("test-list-by-username-apostrophe-2")
+        mocked_workspace_binding1 = omocker.mock_workspace_binding("integration-test-crud-apostrophe-1", "integration-test'crud1@bases!com", mocked_workspace1["metadata"]["name"])
+        mocked_workspace_binding2 = omocker.mock_workspace_binding("integration-test-crud-apostrophe-2", "integration-test'crud1@bases!com", mocked_workspace2["metadata"]["name"])
+        mocked_workspace_binding3 = omocker.mock_workspace_binding("integration-test-crud-apostrophe-3", "integration-test'crud2@bases!com", mocked_workspace2["metadata"]["name"])
+        workspace1 = await omocker.recreate_workspace(client = workspace_client, workspace = mocked_workspace1)
+        workspace2 = await omocker.recreate_workspace(client = workspace_client, workspace = mocked_workspace2)
+        workspace_binding1 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding1, append_label = False)
+        workspace_binding2 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding2, append_label = False)
+        workspace_binding3 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding3, append_label = False)
+
+        workspace_bindings_list = await binding_client.list_by_username("default", "integration-test'crud1@bases!com")
+        assert len(workspace_bindings_list) == 2
+
+        await workspace_client.delete(body = workspace1)
+        await workspace_client.delete(body = workspace2)
+        await binding_client.delete(body = workspace_binding1)
+        await binding_client.delete(body = workspace_binding2)
+        await binding_client.delete(body = workspace_binding3)
+
+    @pytest.mark.asyncio
+    async def test_list_by_username_apostrophe_2(self):
+        self.log.info("Getting Configuration")
+        configuration = await load_kube_config()
+        print(f"configuration = {configuration}")
+        self.log.info("Connecting to client")
+        api_client = ApiClient()
+        custom_objects_api = CustomObjectsApi(api_client=api_client)
+        self.log.info("Setting up AnalyticsWorkspaceClient")
+        workspace_client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log)
+        binding_client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log)
+        omocker = ObjectsMocker()
+        mocked_workspace1 = omocker.mock_workspace("test-list-by-username-apostrophe-2-1")
+        mocked_workspace2 = omocker.mock_workspace("test-list-by-username-apostrophe-2-2")
+        mocked_workspace_binding1 = omocker.mock_workspace_binding("integration-test-crud-apostrophe-2-1", "integration-test2'crud1@bases!com", mocked_workspace1["metadata"]["name"])
+        mocked_workspace_binding2 = omocker.mock_workspace_binding("integration-test-crud-apostrophe-2-2", "integration-test2'crud1@bases!com", mocked_workspace2["metadata"]["name"])
+        mocked_workspace_binding3 = omocker.mock_workspace_binding("integration-test-crud-apostrophe-2-3", "integration-test2'crud2@bases!com!", mocked_workspace2["metadata"]["name"])
+        workspace1 = await omocker.recreate_workspace(client = workspace_client, workspace = mocked_workspace1)
+        workspace2 = await omocker.recreate_workspace(client = workspace_client, workspace = mocked_workspace2)
+        workspace_binding1 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding1, append_label = False)
+        workspace_binding2 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding2, append_label = False)
+        workspace_binding3 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding3, append_label = False)
+
+        workspace_bindings_list = await binding_client.list_by_username("default", "integration-test2'crud1@bases!com")
+        assert len(workspace_bindings_list) == 2
+
+        await workspace_client.delete(body = workspace1)
+        await workspace_client.delete(body = workspace2)
+        await binding_client.delete(body = workspace_binding1)
+        await binding_client.delete(body = workspace_binding2)
+        await binding_client.delete(body = workspace_binding3)
+
+
 class TestWorkspaceManager:
     log = Logger("TestWorkspaceManager")
     @pytest.mark.asyncio
@@ -279,11 +420,14 @@ class TestWorkspaceManager:
         mocked_workspace1 = omocker.mock_workspace("manager-test-list-by-username1", display_name = "Z workspace")
         mocked_workspace2 = omocker.mock_workspace("manager-test-list-by-username2", display_name = "A workspace")
         mocked_workspace3 = omocker.mock_workspace("manager-test-list-by-username3", display_name= "B workspace")
+        mocked_workspace4 = omocker.mock_workspace("manager-test-list-by-username4", display_name= "C workspace")
         mocked_workspace_binding1 = omocker.mock_workspace_binding("manager-integration-test-crud1", "manager-integration-test-crud1", mocked_workspace1["metadata"]["name"])
         mocked_workspace_binding2 = omocker.mock_workspace_binding("managerintegration-test-crud2", "manager-integration-test-crud1", mocked_workspace2["metadata"]["name"])
         mocked_workspace_binding3 = omocker.mock_workspace_binding("managerintegration-test-crud3", "manager-integration-test-crud2", mocked_workspace2["metadata"]["name"])
         mocked_workspace_binding4 = omocker.mock_workspace_binding("managerintegration-test-crud4", "manager-integration-test-crud2", mocked_workspace3["metadata"]["name"])
         mocked_workspace_binding5 = omocker.mock_workspace_binding("managerintegration-test-crud5", "manager-integration-test-crud3", mocked_workspace2["metadata"]["name"])
+        mocked_workspace_binding6 = omocker.mock_workspace_binding("managerintegration-test-crud6", "manager-integration-test-crud1", mocked_workspace4["metadata"]["name"])
+        mocked_workspace_binding7 = omocker.mock_workspace_binding("managerintegration-test-crud7", "manager-integration-test-crud1", mocked_workspace1["metadata"]["name"])
         workspace1 = await omocker.recreate_workspace(client = workspace_manager.workspace_client, workspace = mocked_workspace1)
         workspace2 = await omocker.recreate_workspace(client = workspace_manager.workspace_client, workspace = mocked_workspace2)
         workspace3 = await omocker.recreate_workspace(client = workspace_manager.workspace_client, workspace = mocked_workspace3)
@@ -292,6 +436,8 @@ class TestWorkspaceManager:
         workspace_binding3 = await omocker.recreate_workspace_binding(client = workspace_manager.binding_client, binding = mocked_workspace_binding3)
         workspace_binding4 = await omocker.recreate_workspace_binding(client = workspace_manager.binding_client, binding = mocked_workspace_binding4)
         workspace_binding5 = await omocker.recreate_workspace_binding(client = workspace_manager.binding_client, binding = mocked_workspace_binding5)
+        workspace_binding6 = await omocker.recreate_workspace_binding(client = workspace_manager.binding_client, binding = mocked_workspace_binding6)
+        workspace_binding7 = await omocker.recreate_workspace_binding(client = workspace_manager.binding_client, binding = mocked_workspace_binding7)
 
         permitted_workspaces = await workspace_manager.get_permitted_workspaces("default", "manager-integration-test-crud1")
         assert len(permitted_workspaces) == 2
@@ -320,6 +466,8 @@ class TestWorkspaceManager:
         await workspace_manager.binding_client.delete(body = workspace_binding3)
         await workspace_manager.binding_client.delete(body = workspace_binding4)
         await workspace_manager.binding_client.delete(body = workspace_binding5)
+        await workspace_manager.binding_client.delete(body = workspace_binding6)
+        await workspace_manager.binding_client.delete(body = workspace_binding7)
     
     @pytest.mark.asyncio
     async def test_mount_volume(self):

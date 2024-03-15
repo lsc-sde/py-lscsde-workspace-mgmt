@@ -9,6 +9,11 @@ class InvalidParameterException(Exception):
         self.message = message
         super().__init__(self.message)
 
+class InvalidLabelFormatException(Exception):
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
 class WorkspaceNotFoundException(Exception):
     def __init__(self, namespace, name):
         self.name = name

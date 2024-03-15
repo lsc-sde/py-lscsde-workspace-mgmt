@@ -30,11 +30,11 @@ class AnalyticsWorkspaceManager:
         self.log = log
 
     async def get_workspaces_for_user(self, namespace : str, username : str):
-        workspace_bindings = await self.binding_client.list_by_username(namespace, username)
+        workspaces = await self.workspace_client.list_by_username(self.binding_client, namespace, username)
         permitted_workspaces : dict[str, AnalyticsWorkspace] = {}
-        for workspace_binding in workspace_bindings:
-            if workspace_binding.spec.workspace not in permitted_workspaces:
-                permitted_workspaces[workspace_binding.spec.workspace] = await self.workspace_client.get(namespace, workspace_binding.spec.workspace)
+        for workspace in workspaces:
+            if workspace.metadata.name not in permitted_workspaces:
+                permitted_workspaces[workspace.metadata.name] = workspace
 
         return permitted_workspaces
 

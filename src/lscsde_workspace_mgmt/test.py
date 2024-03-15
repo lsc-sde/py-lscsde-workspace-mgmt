@@ -2,7 +2,44 @@ import asyncio
 import pytest
 import requests
 from unittest.mock import Mock
-from .objects import AnalyticsWorkspace
+from .objects import AnalyticsWorkspace, AnalyticsWorkspaceBinding, KubernetesHelper
+from .exceptions import InvalidLabelFormatException
+
+class TestKubernetesHelper:
+    def test_format_label_basic(self):
+        helper = KubernetesHelper()
+        test1 = helper.format_as_label("joe.blogs@someplace.co.uk")
+        assert "joe.blogs___someplace.co.uk" == test1
+
+    def test_format_label_apostrophe(self):
+        helper = KubernetesHelper()
+        test1 = helper.format_as_label("joe.o'keef@someplace.co.uk")
+        assert "joe.o___keef___someplace.co.uk" == test1
+
+    def test_format_label_apostrophe_ending_with_special(self):
+        helper = KubernetesHelper()
+        with pytest.raises(InvalidLabelFormatException):
+            test1 = helper.format_as_label("joe.o'keef@someplace.co.uk!")
+
+class TestWorkspaceBindings:
+    def mock_binding(self, name: str, username : str, workspace : str):
+        binding = AnalyticsWorkspaceBinding(
+            api_version="xlscsde.nhs.uk/v1",
+            kind="AnalyticsWorkspaceBinding",
+            response={}
+            )
+        binding.metadata.name = name
+        binding.metadata.namespace = "default"
+        binding.spec.username = username
+        binding.spec.workspace = workspace
+        return binding
+
+    def test_binding_label_generation_simple(self):
+        binding = self.mock_binding(
+            name = "test1", 
+            username = "joe.blogs@someplace.co.uk",
+            workspace = "test_label_generation")
+        assert "joe.blogs___someplace.co.uk" == binding.spec.username_as_label()
 
 
 class TestWorkspace:

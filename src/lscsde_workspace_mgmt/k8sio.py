@@ -1,13 +1,16 @@
 from logging import Logger
 from kubernetes_asyncio import client
+from kubernetes_asyncio.client.exceptions import ApiException
 from .exceptions import (
-    InvalidParameterException
+    InvalidParameterException,
+    InvalidLabelFormatException
 )
 from .objects import (
     AnalyticsWorkspace,
     AnalyticsWorkspaceBinding,
     AnalyticsWorkspaceStatus,
-    AnalyticsWorkspaceBindingStatus
+    AnalyticsWorkspaceBindingStatus,
+    KubernetesHelper
 )
 from kubernetes_asyncio.client.models import (
     V1ObjectMeta,
@@ -118,30 +121,36 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
         result = await super().list(namespace, **kwargs)
         return [AnalyticsWorkspaceBinding(item, self.get_api_version(), self.kind) for item in result["items"]]
 
-    def format_username_as_label(self, username : str):
-        return username.casefold().replace("@","___")
+    
 
     async def list_by_username(self, namespace, username):
-        formatted_username = self.format_username_as_label(username)
+        helper = KubernetesHelper() 
+        formatted_username = helper.format_as_label(username)
         no_label = await self.list(namespace = namespace, label_selector = f"!xlscsde.nhs.uk/username")
         for item in no_label:
             if item.spec.username:
-                if not item.metadata.labels:
-                    patch_body = [{"op": "add", "path": "/metadata/labels", "value": { "xlscsde.nhs.uk/username" : self.format_username_as_label(item.spec.username) }}]
-                else:
-                    patch_body = [{"op": "add", "path": "/metadata/labels/xlscsde.nhs.uk~1username", "value": self.format_username_as_label(item.spec.username) }]
+                try:
+                    if not item.metadata.labels:
+                        patch_body = [{"op": "add", "path": "/metadata/labels", "value": { "xlscsde.nhs.uk/username" : item.spec.username_as_label() }}]
+                    else:
+                        patch_body = [{"op": "add", "path": "/metadata/labels/xlscsde.nhs.uk~1username", "value": item.spec.username_as_label() }]
 
-                patch_response = await self.patch(
-                    namespace = item.metadata.namespace, 
-                    name = item.metadata.name, 
-                    patch_body = patch_body
-                    )
+                    patch_response = await self.patch(
+                        namespace = item.metadata.namespace, 
+                        name = item.metadata.name, 
+                        patch_body = patch_body
+                        )
+                except InvalidLabelFormatException as ex:
+                    self.log.error(f"Could not validate {item.metadata.name} due to a label format exception: {ex}")
 
-        return await self.list(namespace = namespace, label_selector = f"xlscsde.nhs.uk/username={self.format_username_as_label(username)}")
+        return await self.list(namespace = namespace, label_selector = f"xlscsde.nhs.uk/username={formatted_username}")
 
-    async def create(self, body : AnalyticsWorkspaceBinding):
+    async def create(self, body : AnalyticsWorkspaceBinding, append_label : bool = True):
         contents = body.to_dictionary()
-        contents["metadata"]["labels"]["xlscsde.nhs.uk/username"] = self.format_username_as_label(body.spec.username)
+        
+        if append_label:
+            contents["metadata"]["labels"]["xlscsde.nhs.uk/username"] = body.spec.username_as_label()
+
         result = await super().create(
             namespace = body.metadata.namespace,
             body = contents
@@ -183,9 +192,11 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
         )
         return AnalyticsWorkspaceBinding(result, self.get_api_version(), self.kind)
 
-    async def replace(self, body : AnalyticsWorkspaceBinding):
+    async def replace(self, body : AnalyticsWorkspaceBinding, append_label : bool = True):
         contents = body.to_dictionary()
-        contents["metadata"]["labels"]["xlscsde.nhs.uk/username"] = self.format_username_as_label(body.spec.username)
+        if append_label:
+            contents["metadata"]["labels"]["xlscsde.nhs.uk/username"] = body.spec.username_as_label()
+
         result = await super().replace(
             namespace = body.metadata.namespace,
             name = body.metadata.name,
@@ -235,6 +246,25 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
         result = await super().list(namespace, **kwargs)
         return [AnalyticsWorkspace(item, self.get_api_version(), self.kind) for item in result["items"]]
     
+    async def list_by_username(self, binding_client : AnalyticsWorkspaceBindingClient, namespace : str, username : str):
+        bindings = await binding_client.list_by_username(
+            namespace = namespace,
+            username = username
+            )
+        bound_workspaces = list(set([x.spec.workspace for x in bindings]))
+        workspaces = []
+        for bound_workspace in bound_workspaces:
+            try:
+                workspace = await self.get(namespace = namespace, name = bound_workspace)
+                workspaces.append(workspace)
+            except ApiException as e:
+                if e.status == 404:
+                    self.log.error(f"Workspace {bound_workspace} referenced by user {username} on {namespace} does not exist")
+                else:
+                    raise e    
+        
+        return workspaces     
+            
     async def create(self, body : AnalyticsWorkspace):
         result = await super().create(
             namespace = body.metadata.namespace,

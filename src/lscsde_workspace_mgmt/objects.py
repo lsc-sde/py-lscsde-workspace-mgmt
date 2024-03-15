@@ -1,5 +1,15 @@
 from datetime import datetime, timedelta
 from kubernetes_asyncio.client.models import V1ObjectMeta
+from .exceptions import InvalidLabelFormatException
+import re 
+
+class KubernetesHelper:
+    def format_as_label(self, username : str):
+        formatted = re.sub('[^0-9a-z.]+', '___', username.casefold())
+        validation_expression = '^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$'
+        if not re.match(pattern = validation_expression, string = formatted):
+            raise InvalidLabelFormatException(f"Invalid value: \"{formatted}\": a valid label must be an empty string or consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyValue',  or 'my_value',  or '12345', regex used for validation is '{validation_expression}')")
+        return formatted
 
 class KubernetesObject:
     def __init__(self, response : dict, api_version : str, kind : str):
@@ -251,7 +261,7 @@ class AnalyticsWorkspaceBindingClaim:
 class AnalyticsWorkspaceBinding(KubernetesObject):
     def __init__(self, response : dict, api_version : str, kind : str):
         super().__init__(response, api_version, kind)
-        self.spec = AnalyticsWorkspaceBindingSpec(response["spec"])
+        self.spec = AnalyticsWorkspaceBindingSpec(response.get("spec", {}))
         self.status = AnalyticsWorkspaceBindingStatus(response.get("status", {}))
 
     def to_dictionary(self, include_metadata : bool = True, include_spec = True, include_status = True):
@@ -275,6 +285,9 @@ class AnalyticsWorkspaceBindingSpec:
         if claims:
             self.claims = [AnalyticsWorkspaceBindingClaim(claim) for claim in claims]
                 
+    def username_as_label(self):
+        helper = KubernetesHelper()
+        return helper.format_as_label(self.username)
 
     def to_dictionary(self):
         contents = {}
