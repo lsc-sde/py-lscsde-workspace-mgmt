@@ -192,6 +192,37 @@ class TestWorkspaceClient:
         deleted_workspace = await client.delete(body = replaced_workspace)
         print(deleted_workspace)
 
+    @pytest.mark.asyncio
+    async def test_list_by_username_unlinked_workspace(self):
+        self.log.info("Getting Configuration")
+        configuration = await load_kube_config()
+        print(f"configuration = {configuration}")
+        self.log.info("Connecting to client")
+        api_client = ApiClient()
+        custom_objects_api = CustomObjectsApi(api_client=api_client)
+        self.log.info("Setting up AnalyticsWorkspaceClient")
+        workspace_client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log)
+        binding_client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log)
+        omocker = ObjectsMocker()
+        mocked_workspace1 = omocker.mock_workspace("test-list-by-username-unlinked-workspace-1")
+        mocked_workspace2 = omocker.mock_workspace("test-list-by-username-unlinked-workspace-2")
+        mocked_workspace_binding1 = omocker.mock_workspace_binding("integration-test-crud-unlinked-workspace-1", "integration-test-crud-unlinked-workspace-1", mocked_workspace1["metadata"]["name"])
+        mocked_workspace_binding2 = omocker.mock_workspace_binding("integration-test-crud-unlinked-workspace-2", "integration-test-crud-unlinked-workspace-1", mocked_workspace2["metadata"]["name"])
+        mocked_workspace_binding3 = omocker.mock_workspace_binding("integration-test-crud-unlinked-workspace-3", "integration-test-crud-unlinked-workspace-2", mocked_workspace2["metadata"]["name"])
+        mocked_workspace_binding3 = omocker.mock_workspace_binding("integration-test-crud-unlinked-workspace-4", "integration-test-crud-unlinked-workspace-1", mocked_workspace1["metadata"]["name"])
+        workspace1 = await omocker.recreate_workspace(client = workspace_client, workspace = mocked_workspace1)
+        workspace_binding1 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding1, append_label = False)
+        workspace_binding2 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding2, append_label = False)
+        workspace_binding3 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding3, append_label = False)
+
+        workspaces = await workspace_client.list_by_username(binding_client = binding_client, namespace = "default", username = "integration-test-crud-unlinked-workspace-1")
+        assert len(workspaces) == 1
+
+        await workspace_client.delete(body = workspace1)
+        await binding_client.delete(body = workspace_binding1)
+        await binding_client.delete(body = workspace_binding2)
+        await binding_client.delete(body = workspace_binding3)
+        
 class TestWorkspaceBindingClient:
     log = Logger("TestWorkspaceBindingClient")
 

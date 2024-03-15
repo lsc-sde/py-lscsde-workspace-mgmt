@@ -1,5 +1,6 @@
 from logging import Logger
 from kubernetes_asyncio import client
+from kubernetes_asyncio.client.exceptions import ApiException
 from .exceptions import (
     InvalidParameterException,
     InvalidLabelFormatException
@@ -245,6 +246,25 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
         result = await super().list(namespace, **kwargs)
         return [AnalyticsWorkspace(item, self.get_api_version(), self.kind) for item in result["items"]]
     
+    async def list_by_username(self, binding_client : AnalyticsWorkspaceBindingClient, namespace : str, username : str):
+        bindings = await binding_client.list_by_username(
+            namespace = namespace,
+            username = username
+            )
+        bound_workspaces = list(set([x.spec.workspace for x in bindings]))
+        workspaces = []
+        for bound_workspace in bound_workspaces:
+            try:
+                workspace = await self.get(namespace = namespace, name = bound_workspace)
+                workspaces.append(workspace)
+            except ApiException as e:
+                if e.status == 404:
+                    self.log.error(f"Workspace {bound_workspace} referenced by user {username} on {namespace} does not exist")
+                else:
+                    raise e    
+        
+        return workspaces     
+            
     async def create(self, body : AnalyticsWorkspace):
         result = await super().create(
             namespace = body.metadata.namespace,
