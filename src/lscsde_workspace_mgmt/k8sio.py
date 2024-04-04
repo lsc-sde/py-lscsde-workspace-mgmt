@@ -1,6 +1,8 @@
 from logging import Logger
 from kubernetes_asyncio import client
 from kubernetes_asyncio.client.exceptions import ApiException
+from pydantic import TypeAdapter
+from .models import AnalyticsWorkspace, AnalyticsWorkspaceBinding
 from .exceptions import (
     InvalidParameterException,
     InvalidLabelFormatException
@@ -10,6 +12,8 @@ from .objects import (
     AnalyticsWorkspaceBinding,
     AnalyticsWorkspaceStatus,
     AnalyticsWorkspaceBindingStatus,
+    AnalyticsWorkspaceSpec,
+    AnalyticsWorkspaceBindingSpec,
     KubernetesHelper
 )
 from kubernetes_asyncio.client.models import (
@@ -102,6 +106,7 @@ class KubernetesNamespacedCustomClient:
         )
 
 class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
+    adaptor = TypeAdapter(AnalyticsWorkspaceBinding)
     def __init__(self, k8s_api: client.CustomObjectsApi, log: Logger):
         super().__init__(
             k8s_api = k8s_api, 
@@ -115,11 +120,11 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
     async def get(self, namespace, name):
         result = await super().get(namespace, name)
         print(result)
-        return AnalyticsWorkspaceBinding(result, self.get_api_version(), self.kind)
+        return self.adaptor.validate_python(result)
     
     async def list(self, namespace, **kwargs):
         result = await super().list(namespace, **kwargs)
-        return [AnalyticsWorkspaceBinding(item, self.get_api_version(), self.kind) for item in result["items"]]
+        return [self.adaptor.validate_python(item) for item in result["items"]]
 
     
 
@@ -146,7 +151,7 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
         return await self.list(namespace = namespace, label_selector = f"xlscsde.nhs.uk/username={formatted_username}")
 
     async def create(self, body : AnalyticsWorkspaceBinding, append_label : bool = True):
-        contents = body.to_dictionary()
+        contents = self.adaptor.dump_python(body, by_alias=True)
         
         if append_label:
             contents["metadata"]["labels"]["xlscsde.nhs.uk/username"] = body.spec.username_as_label()
@@ -155,15 +160,18 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
             namespace = body.metadata.namespace,
             body = contents
         )
-        return AnalyticsWorkspaceBinding(result, self.get_api_version(), self.kind)
+        return self.adaptor.validate_python(result)
 
     async def patch(self, namespace : str = None, name : str = None, patch_body : dict = None, body : AnalyticsWorkspaceBinding = None):
         if not patch_body:
             if not body:
                 raise InvalidParameterException("Either namespace, name and patch_body or body must be provided")
+            
+            spec_adapter = TypeAdapter(AnalyticsWorkspaceBindingSpec)
+            status_adapter = TypeAdapter(AnalyticsWorkspaceBindingStatus)
             patch_body = [
-                {"op": "replace", "path": "/spec", "value": body.spec.to_dictionary()},
-                {"op": "replace", "path": "/status", "value": body.status.to_dictionary()}
+                {"op": "replace", "path": "/spec", "value": spec_adapter.dump_python(body.spec, by_alias=True)},
+                {"op": "replace", "path": "/status", "value": status_adapter.dump_python(body.status, by_alias=True)}
             ]
 
         if not namespace:
@@ -181,19 +189,20 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
             name = name,
             body = patch_body
         )
-        return AnalyticsWorkspaceBinding(result, self.get_api_version(), self.kind)
+        return self.adaptor.validate_python(result)
 
     async def patch_status(self, namespace : str, name : str, status : AnalyticsWorkspaceBindingStatus):
-        body = [{"op": "replace", "path": "/status", "value": status.to_dictionary()}] 
+        status_adapter = TypeAdapter(AnalyticsWorkspaceBindingStatus)
+        body = [{"op": "replace", "path": "/status", "value": status_adapter.dump_python(status, by_alias=True)}] 
         result = await super().patch_status(
             namespace = namespace,
             name = name,
             body = body
         )
-        return AnalyticsWorkspaceBinding(result, self.get_api_version(), self.kind)
+        return self.adaptor.validate_python(result)
 
     async def replace(self, body : AnalyticsWorkspaceBinding, append_label : bool = True):
-        contents = body.to_dictionary()
+        contents = self.adaptor.dump_python(body, by_alias=True)
         if append_label:
             contents["metadata"]["labels"]["xlscsde.nhs.uk/username"] = body.spec.username_as_label()
 
@@ -202,7 +211,7 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
             name = body.metadata.name,
             body = contents
         )
-        return AnalyticsWorkspaceBinding(result, self.get_api_version(), self.kind)
+        return self.adaptor.validate_python(result)
     
     async def delete(self, body : AnalyticsWorkspaceBinding = None, namespace : str = None, name : str = None):
         if body:
@@ -228,6 +237,8 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
         )
 
 class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
+    adaptor = TypeAdapter(AnalyticsWorkspace)
+
     def __init__(self, k8s_api: client.CustomObjectsApi, log: Logger):
         super().__init__(
             k8s_api = k8s_api, 
@@ -240,11 +251,12 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
         
     async def get(self, namespace, name):
         result = await super().get(namespace, name)
-        return AnalyticsWorkspace(result, self.get_api_version(), self.kind)
+        return self.adaptor.validate_python(result)
     
     async def list(self, namespace, **kwargs):
         result = await super().list(namespace, **kwargs)
-        return [AnalyticsWorkspace(item, self.get_api_version(), self.kind) for item in result["items"]]
+        
+        return [self.adaptor.validate_python(item) for item in result["items"]]
     
     async def list_by_username(self, binding_client : AnalyticsWorkspaceBindingClient, namespace : str, username : str):
         bindings = await binding_client.list_by_username(
@@ -268,17 +280,21 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
     async def create(self, body : AnalyticsWorkspace):
         result = await super().create(
             namespace = body.metadata.namespace,
-            body = body.to_dictionary()
+            body = self.adaptor.dump_python(body, by_alias=True)
         )
-        return AnalyticsWorkspace(result, self.get_api_version(), self.kind)
+        return self.adaptor.validate_python(result)
 
     async def patch(self, namespace : str = None, name : str = None, patch_body : dict = None, body : AnalyticsWorkspace = None):
         if not patch_body:
             if not body:
                 raise InvalidParameterException("Either namespace, name and patch_body or body must be provided")
+            
+            spec_adapter = TypeAdapter(AnalyticsWorkspaceSpec)
+            status_adapter = TypeAdapter(AnalyticsWorkspaceStatus)
+
             patch_body = [
-                {"op": "replace", "path": "/spec", "value": body.spec.to_dictionary()},
-                {"op": "replace", "path": "/status", "value": body.status.to_dictionary()}
+                {"op": "replace", "path": "/spec", "value": spec_adapter.dump_python(body.spec, by_alias=True)},
+                {"op": "replace", "path": "/status", "value": status_adapter.dump_python(body.status, by_alias=True)}
             ]
 
         if not namespace:
@@ -295,25 +311,29 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
             namespace = namespace,
             name = name,
             body = patch_body
-        )
-        return AnalyticsWorkspace(result, self.get_api_version(), self.kind)
+        )        
+        
+        return self.adaptor.validate_python(result)
 
     async def patch_status(self, namespace : str, name : str, status : AnalyticsWorkspaceStatus):
-        body = [{"op": "replace", "path": "/status", "value": status.to_dictionary()}] 
+        status_adapter = TypeAdapter(AnalyticsWorkspaceStatus)
+        body = [{"op": "replace", "path": "/status", "value": status_adapter.dump_python(status, by_alias=True)}] 
         result = await super().patch_status(
             namespace = namespace,
             name = name,
             body = body
         )
-        return AnalyticsWorkspace(result, self.get_api_version(), self.kind)
+        return self.adaptor.validate_python(result)
+
 
     async def replace(self, body : AnalyticsWorkspace):
         result = await super().replace(
             namespace = body.metadata.namespace,
             name = body.metadata.name,
-            body = body.to_dictionary()
+            body = self.adaptor.dump_python(body, by_alias=True)
         )
-        return AnalyticsWorkspace(result, self.get_api_version(), self.kind)
+        return self.adaptor.validate_python(result)
+        
     
     async def delete(self, body : AnalyticsWorkspace = None, namespace : str = None, name : str = None):
         if body:

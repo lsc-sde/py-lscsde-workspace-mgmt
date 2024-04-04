@@ -1,4 +1,5 @@
 import pytest
+from pydantic import TypeAdapter
 from unittest.mock import Mock
 from kubernetes_asyncio.config import load_kube_config
 from kubernetes_asyncio.client import (
@@ -18,7 +19,9 @@ class ObjectsMocker:
     
     async def create_workspace(self, client : AnalyticsWorkspaceClient, name : str, display_name : str = "Example jupyter workspace"):
         mocked_workspace = self.mock_workspace(name = name)
-        translated_workspace = AnalyticsWorkspace(mocked_workspace, client.get_api_version(), client.kind)
+        adapter = TypeAdapter(AnalyticsWorkspace)
+
+        translated_workspace = adapter.validate_python(mocked_workspace)
         list_workspaces = await client.list("default", field_selector = f"metadata.name={translated_workspace.metadata.name}")
         if len(list_workspaces) > 0:
             await client.delete(body = list_workspaces[0])
@@ -28,7 +31,9 @@ class ObjectsMocker:
     async def create_workspace_binding(self, client : AnalyticsWorkspaceBindingClient, name : str, username : str, workspace : str, append_label : bool = True):
         omocker = ObjectsMocker()
         mocked_workspace_binding = omocker.mock_workspace_binding(name, username, workspace)
-        translated_workspace_binding = AnalyticsWorkspaceBinding(mocked_workspace_binding, client.get_api_version(), client.kind)
+        adapter = TypeAdapter(AnalyticsWorkspaceBinding)
+        
+        translated_workspace_binding = adapter.validate_python(mocked_workspace_binding, strict=False)
         list_workspace_bindings = await client.list("default", field_selector = f"metadata.name={translated_workspace_binding.metadata.name}")
         if len(list_workspace_bindings) > 0:
             await client.delete(body = list_workspace_bindings[0])
@@ -75,7 +80,8 @@ class ObjectsMocker:
             }
     
     async def recreate_workspace(self, client : AnalyticsWorkspaceClient, workspace = dict[str, any]):
-        translated_workspace = AnalyticsWorkspace(workspace, client.get_api_version(), client.kind)
+        adapter = TypeAdapter(AnalyticsWorkspace)
+        translated_workspace = adapter.validate_python(workspace, strict=False)
         list_workspaces = await client.list("default", field_selector = f"metadata.name={translated_workspace.metadata.name}")
         if len(list_workspaces) > 0:
             await client.delete(body = list_workspaces[0])
@@ -84,7 +90,8 @@ class ObjectsMocker:
         return created_workspace
         
     async def recreate_workspace_binding(self, client : AnalyticsWorkspaceBindingClient, binding = dict[str, any], append_label : bool = True):
-        translated_workspace_binding = AnalyticsWorkspaceBinding(binding, client.get_api_version(), client.kind)
+        adapter = TypeAdapter(AnalyticsWorkspaceBinding)
+        translated_workspace_binding = adapter.validate_python(binding, strict=False)
         list_workspace_bindings = await client.list("default", field_selector = f"metadata.name={translated_workspace_binding.metadata.name}")
         if len(list_workspace_bindings) > 0:
             await client.delete(body = list_workspace_bindings[0])
@@ -110,7 +117,9 @@ class TestWorkspaceClient:
         self.log.info("Getting {name} from {namespace} namespace")
         omocker = ObjectsMocker()
         mocked_workspace = omocker.mock_workspace(name = name)
-        translated_workspace = AnalyticsWorkspace(mocked_workspace, client.get_api_version(), client.kind)
+        adapter = TypeAdapter(AnalyticsWorkspace)
+        
+        translated_workspace = adapter.validate_python(mocked_workspace, strict=False)
         list_workspaces = await client.list("default", field_selector = f"metadata.name={translated_workspace.metadata.name}")
         if len(list_workspaces) > 0:
             await client.delete(body = list_workspaces[0])
@@ -139,7 +148,9 @@ class TestWorkspaceClient:
         name = "test-workspace-list"
         omocker = ObjectsMocker()
         mocked_workspace = omocker.mock_workspace(name = name)
-        translated_workspace = AnalyticsWorkspace(mocked_workspace, client.get_api_version(), client.kind)
+        adapter = TypeAdapter(AnalyticsWorkspace)
+
+        translated_workspace = adapter.validate_python(mocked_workspace, strict=False)
         list_workspaces = await client.list("default", field_selector = f"metadata.name={translated_workspace.metadata.name}")
         if len(list_workspaces) > 0:
             await client.delete(body = list_workspaces[0])
@@ -171,7 +182,8 @@ class TestWorkspaceClient:
         client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log)
         omocker = ObjectsMocker()
         mocked_workspace = omocker.mock_workspace("integration-test-crud")
-        translated_workspace = AnalyticsWorkspace(mocked_workspace, client.get_api_version(), client.kind)
+        adapter = TypeAdapter(AnalyticsWorkspace)
+        translated_workspace = adapter.validate_python(mocked_workspace, strict=False)
         list_workspaces = await client.list("default", field_selector = f"metadata.name={translated_workspace.metadata.name}")
         if len(list_workspaces) > 0:
             await client.delete(body = list_workspaces[0])
@@ -204,6 +216,9 @@ class TestWorkspaceClient:
         workspace_client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log)
         binding_client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log)
         omocker = ObjectsMocker()
+        workspace_adapter = TypeAdapter(AnalyticsWorkspace)
+        workspace_binding_adapter = TypeAdapter(AnalyticsWorkspaceBinding)
+
         mocked_workspace1 = omocker.mock_workspace("test-list-by-username-unlinked-workspace-1")
         mocked_workspace2 = omocker.mock_workspace("test-list-by-username-unlinked-workspace-2")
         mocked_workspace_binding1 = omocker.mock_workspace_binding("integration-test-crud-unlinked-workspace-1", "integration-test-crud-unlinked-workspace-1", mocked_workspace1["metadata"]["name"])

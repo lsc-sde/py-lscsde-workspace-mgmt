@@ -8,7 +8,8 @@ from .k8sio import (
 
 from .objects import (
     AnalyticsWorkspace,
-    AnalyticsWorkspaceBinding
+    AnalyticsWorkspaceBinding,
+    AnalyticsWorkspaceConverter
 )
 
 from .exceptions import (
@@ -43,7 +44,8 @@ class AnalyticsWorkspaceManager:
         sorted_workspaces = sorted(
             permitted_workspaces.values(), key=lambda x: x.spec.display_name
         )
-        return [item.to_workspace_dict() for item in sorted_workspaces]
+        converter = AnalyticsWorkspaceConverter()
+        return [converter.to_workspace_dict(item) for item in sorted_workspaces]
         
     async def mount_workspace(self, pod : V1Pod, storage_class_name, mount_prefix, storage_prefix : str = "", read_only : bool = False, mount_path = ""):
         metadata : V1ObjectMeta = pod.metadata

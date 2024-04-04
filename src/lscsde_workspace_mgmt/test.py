@@ -2,8 +2,9 @@ import asyncio
 import pytest
 import requests
 from unittest.mock import Mock
-from .objects import AnalyticsWorkspace, AnalyticsWorkspaceBinding, KubernetesHelper
+from .objects import AnalyticsWorkspaceConverter, AnalyticsWorkspace, AnalyticsWorkspaceBinding, KubernetesHelper, KubernetesMetadata, AnalyticsWorkspaceBindingSpec
 from .exceptions import InvalidLabelFormatException
+from pydantic import TypeAdapter
 
 class TestKubernetesHelper:
     def test_format_label_basic(self):
@@ -23,15 +24,11 @@ class TestKubernetesHelper:
 
 class TestWorkspaceBindings:
     def mock_binding(self, name: str, username : str, workspace : str):
-        binding = AnalyticsWorkspaceBinding(
-            api_version="xlscsde.nhs.uk/v1",
-            kind="AnalyticsWorkspaceBinding",
-            response={}
-            )
-        binding.metadata.name = name
-        binding.metadata.namespace = "default"
-        binding.spec.username = username
-        binding.spec.workspace = workspace
+        metadata = KubernetesMetadata(name = name, namespace = "default")
+        spec = AnalyticsWorkspaceBindingSpec(username = username, workspace = workspace)
+        binding = AnalyticsWorkspaceBinding()
+        binding.metadata = metadata
+        binding.spec = spec
         return binding
 
     def test_binding_label_generation_simple(self):
@@ -45,7 +42,9 @@ class TestWorkspaceBindings:
 class TestWorkspace:
     def test_workspace_conversion(self):
         workspace_dict = self.mock_workspace()
-        workspace = AnalyticsWorkspace(workspace_dict, "xlscsde.nhs.uk/v1", "AnalyticsWorkspace")
+        print(workspace_dict)
+        adaptor = TypeAdapter(AnalyticsWorkspace)
+        workspace = adaptor.validate_python(workspace_dict, strict=False)
         assert "example-jupyter-workspace" == workspace.metadata.name 
         assert "jupyter/datascience-notebook:latest" == workspace.spec.jupyter_workspace.image
         assert "2024-02-26" == workspace.spec.validity.available_from
@@ -54,9 +53,11 @@ class TestWorkspace:
         assert "This is an example jupyter workspace, and can be largely ignored\n" == workspace.spec.description
 
     def test_workspace_conversion_to_dict(self):
+        adaptor = TypeAdapter(AnalyticsWorkspace)
         workspace_dict = self.mock_workspace()
-        workspace = AnalyticsWorkspace(workspace_dict, "xlscsde.nhs.uk/v1", "AnalyticsWorkspace")
-        workspace_converted = workspace.to_dictionary()
+        workspace = adaptor.validate_python(workspace_dict)
+        workspace_converted = adaptor.dump_python(workspace, by_alias=True)
+        print(workspace_converted)
         assert "xlscsde.nhs.uk/v1" == workspace_converted["apiVersion"]
         assert "AnalyticsWorkspace" == workspace_converted["kind"]
         assert "example-jupyter-workspace" == workspace_converted["metadata"]["name"]
@@ -67,9 +68,11 @@ class TestWorkspace:
         assert "This is an example jupyter workspace, and can be largely ignored\n" == workspace_converted["spec"]["description"]
 
     def test_workspace_conversion_to_workspace_dict(self):
-        mock_workspace = self.mock_workspace()
-        workspace = AnalyticsWorkspace(mock_workspace, "xlscsde.nhs.uk/v1", "AnalyticsWorkspace")
-        ws = workspace.to_workspace_dict()
+        adaptor = TypeAdapter(AnalyticsWorkspace)
+        workspace_dict = self.mock_workspace()
+        workspace = adaptor.validate_python(workspace_dict)
+        converter = AnalyticsWorkspaceConverter()
+        ws = converter.to_workspace_dict(workspace=workspace)
         assert ws["display_name"] == "Example jupyter workspace"
         assert ws["description"] == "This is an example jupyter workspace, and can be largely ignored\n"
         assert ws["kubespawner_override"] != None
