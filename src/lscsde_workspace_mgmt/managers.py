@@ -1,6 +1,7 @@
 from .k8sio import (
     AnalyticsWorkspaceClient,
     AnalyticsWorkspaceBindingClient,
+    EventClient,
     PersistentVolumeClaimClient,
     V1ObjectMeta,
     V1Pod
@@ -23,10 +24,11 @@ from kubernetes_asyncio.client import (
 from logging import Logger
 
 class AnalyticsWorkspaceManager:
-    def __init__(self, api_client : ApiClient, log : Logger):
+    def __init__(self, api_client : ApiClient, log : Logger, reporting_controller : str = "xlscsde.nhs.uk/unspecified-controller", reporting_user = "Unknown User"):
         custom_objects_api = CustomObjectsApi(api_client=api_client)
-        self.workspace_client = AnalyticsWorkspaceClient(custom_objects_api, log)
-        self.binding_client = AnalyticsWorkspaceBindingClient(custom_objects_api, log)
+        self.event_client = EventClient(api_client=api_client,log = log, reporting_controller = reporting_controller, reporting_user=reporting_user)
+        self.workspace_client = AnalyticsWorkspaceClient(custom_objects_api, log, event_client=self.event_client)
+        self.binding_client = AnalyticsWorkspaceBindingClient(custom_objects_api, log, event_client=self.event_client)
         self.pvc_client = PersistentVolumeClaimClient(api_client, log)
         self.log = log
 

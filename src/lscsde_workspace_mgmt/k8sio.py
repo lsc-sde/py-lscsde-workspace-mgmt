@@ -26,6 +26,97 @@ from kubernetes_asyncio.client.models import (
     V1PersistentVolumeClaimVolumeSource,
     V1PersistentVolumeClaimList
 )
+from os import getenv
+from datetime import datetime
+from uuid import uuid4
+from pytz import utc
+
+class EventClient:
+    def __init__(self, api_client : client.ApiClient, log : Logger, reporting_controller : str = "xlscsde.nhs.uk/undefined-controller", reporting_user = "Unknown User"):
+        self.api = client.EventsV1Api(api_client)
+        self.log = log
+        self.reporting_controller = reporting_controller
+        self.reporting_instance = getenv("HOSTNAME", getenv("COMPUTERNAME", "unknown"))
+        self.reporting_user = reporting_user
+
+    async def RegisterWorkspaceEvent(self, workspace : AnalyticsWorkspace, reason : str, note : str):
+        event_time = datetime.now(utc)
+        body = client.EventsV1Event(
+            action=reason,
+            metadata = V1ObjectMeta(
+                namespace = workspace.metadata.namespace,
+                name = f"ws-{uuid4().hex}-{workspace.metadata.resource_version}-evt"
+            ),
+            event_time = event_time,
+            reason = reason,
+            note = note,
+            reporting_controller = self.reporting_controller,
+            reporting_instance = self.reporting_instance,
+            regarding=client.V1ObjectReference(
+                api_version = workspace.api_version,
+                kind = workspace.kind,
+                namespace = workspace.metadata.namespace,
+                name = workspace.metadata.name
+            ),
+            type = "Normal"
+        )
+        await self.api.create_namespaced_event(namespace = workspace.metadata.namespace, body = body)
+    
+    async def RegisterWorkspaceBindingEvent(self, binding : AnalyticsWorkspaceBinding, reason : str, note : str):
+        event_time = datetime.now(utc)
+        body = client.EventsV1Event(
+            action=reason,
+            metadata = V1ObjectMeta(
+                namespace = binding.metadata.namespace,
+                name = f"wsb-{uuid4().hex}-{binding.metadata.resource_version}-evt"
+            ),
+            event_time = event_time,
+            reason = reason,
+            note = note,
+            reporting_controller = self.reporting_controller,
+            reporting_instance = self.reporting_instance,
+            regarding=client.V1ObjectReference(
+                api_version = binding.api_version,
+                kind = binding.kind,
+                namespace = binding.metadata.namespace,
+                name = binding.metadata.name
+            ),
+            type = "Normal"
+        )
+        await self.api.create_namespaced_event(namespace = binding.metadata.namespace, body = body)
+    
+    async def WorkspaceCreated(self, workspace : AnalyticsWorkspace, note : str = None):
+        if not note:
+            note = f"Workspace Created by {self.reporting_user}"
+
+        await self.RegisterWorkspaceEvent(workspace, "WorkspaceCreated", note)
+
+    async def WorkspaceUpdated(self, workspace : AnalyticsWorkspace, note : str = None):
+        if not note:
+            note = f"Workspace Updated by {self.reporting_user}"
+
+        await self.RegisterWorkspaceEvent(workspace, "WorkspaceUpdated", note)
+
+    async def WorkspaceDeleted(self, workspace : AnalyticsWorkspace, note : str = None):
+        if not note:
+            note = f"Workspace Deleted by {self.reporting_user}"
+
+        await self.RegisterWorkspaceEvent(workspace, "WorkspaceDeleted", note)
+
+    async def WorkspaceBindingCreated(self, binding : AnalyticsWorkspaceBinding, note : str = None):
+        if not note:
+            note = f"Workspace Binding Created by {self.reporting_user}"
+        await self.RegisterWorkspaceBindingEvent(binding, "WorkspaceBindingCreated", note)
+
+    async def WorkspaceBindingUpdated(self, binding : AnalyticsWorkspaceBinding, note : str = None):
+        if not note:
+            note = f"Workspace Binding Updated by {self.reporting_user}"
+        await self.RegisterWorkspaceBindingEvent(binding, "WorkspaceBindingUpdated", note)
+
+    async def WorkspaceBindingDeleted(self, binding : AnalyticsWorkspaceBinding, note : str = None):
+        if not note:
+            note = f"Workspace Binding Deleted by {self.reporting_user}"
+        await self.RegisterWorkspaceBindingEvent(binding, "WorkspaceBindingDeleted", note)
 
 class KubernetesNamespacedCustomClient:
     def __init__(self, k8s_api : client.CustomObjectsApi, log : Logger, group : str, version : str, plural : str, kind : str):
@@ -104,10 +195,11 @@ class KubernetesNamespacedCustomClient:
             plural = self.plural,
             name = name
         )
+        
 
 class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
     adaptor = TypeAdapter(AnalyticsWorkspaceBinding)
-    def __init__(self, k8s_api: client.CustomObjectsApi, log: Logger):
+    def __init__(self, k8s_api: client.CustomObjectsApi, log: Logger, event_client : EventClient):
         super().__init__(
             k8s_api = k8s_api, 
             log = log, 
@@ -116,17 +208,15 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
             plural = "analyticsworkspacebindings",
             kind = "AnalyticsWorkspaceBinding"
         )
+        self.event_client = event_client
 
     async def get(self, namespace, name):
         result = await super().get(namespace, name)
-        print(result)
         return self.adaptor.validate_python(result)
     
     async def list(self, namespace, **kwargs):
         result = await super().list(namespace, **kwargs)
         return [self.adaptor.validate_python(item) for item in result["items"]]
-
-    
 
     async def list_by_username(self, namespace, username):
         helper = KubernetesHelper() 
@@ -160,7 +250,10 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
             namespace = body.metadata.namespace,
             body = contents
         )
-        return self.adaptor.validate_python(result)
+        
+        created_binding : AnalyticsWorkspaceBinding = self.adaptor.validate_python(result)
+        await self.event_client.WorkspaceBindingUpdated(created_binding)
+        return created_binding
 
     async def patch(self, namespace : str = None, name : str = None, patch_body : dict = None, body : AnalyticsWorkspaceBinding = None):
         if not patch_body:
@@ -189,7 +282,10 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
             name = name,
             body = patch_body
         )
-        return self.adaptor.validate_python(result)
+        
+        updated_binding : AnalyticsWorkspaceBinding = self.adaptor.validate_python(result)
+        await self.event_client.WorkspaceBindingUpdated(updated_binding)
+        return updated_binding
 
     async def patch_status(self, namespace : str, name : str, status : AnalyticsWorkspaceBindingStatus):
         status_adapter = TypeAdapter(AnalyticsWorkspaceBindingStatus)
@@ -211,7 +307,9 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
             name = body.metadata.name,
             body = contents
         )
-        return self.adaptor.validate_python(result)
+        updated_binding : AnalyticsWorkspaceBinding = self.adaptor.validate_python(result)
+        await self.event_client.WorkspaceBindingUpdated(updated_binding)
+        return updated_binding
     
     async def delete(self, body : AnalyticsWorkspaceBinding = None, namespace : str = None, name : str = None):
         if body:
@@ -231,6 +329,10 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
             name = body.metadata.name,
             body = patch_body
         )
+
+        if body:
+            await self.event_client.WorkspaceBindingDeleted(body)
+
         return await super().delete(
             namespace = body.metadata.namespace,
             name = body.metadata.name
@@ -239,7 +341,7 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
 class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
     adaptor = TypeAdapter(AnalyticsWorkspace)
 
-    def __init__(self, k8s_api: client.CustomObjectsApi, log: Logger):
+    def __init__(self, k8s_api: client.CustomObjectsApi, log: Logger, event_client : EventClient):
         super().__init__(
             k8s_api = k8s_api, 
             log = log, 
@@ -248,6 +350,7 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
             plural = "analyticsworkspaces",
             kind = "AnalyticsWorkspace"
         )
+        self.event_client = event_client
         
     async def get(self, namespace, name):
         result = await super().get(namespace, name)
@@ -282,7 +385,9 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
             namespace = body.metadata.namespace,
             body = self.adaptor.dump_python(body, by_alias=True)
         )
-        return self.adaptor.validate_python(result)
+        created_workspace : AnalyticsWorkspace = self.adaptor.validate_python(result)
+        await self.event_client.WorkspaceCreated(created_workspace)
+        return created_workspace
 
     async def patch(self, namespace : str = None, name : str = None, patch_body : dict = None, body : AnalyticsWorkspace = None):
         if not patch_body:
@@ -313,7 +418,9 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
             body = patch_body
         )        
         
-        return self.adaptor.validate_python(result)
+        updated_workspace : AnalyticsWorkspace = self.adaptor.validate_python(result)
+        await self.event_client.WorkspaceUpdated(updated_workspace)
+        return updated_workspace
 
     async def patch_status(self, namespace : str, name : str, status : AnalyticsWorkspaceStatus):
         status_adapter = TypeAdapter(AnalyticsWorkspaceStatus)
@@ -354,11 +461,15 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
             name = body.metadata.name,
             body = patch_body
         )
+
+        if body:
+            await self.event_client.WorkspaceDeleted(body)
+        
         return await super().delete(
             namespace = body.metadata.namespace,
             name = body.metadata.name
         )
-    
+
 class PersistentVolumeClaimClient:
     def __init__(self, api_client : client.ApiClient, log : Logger):
         self.api = client.CoreV1Api(api_client)

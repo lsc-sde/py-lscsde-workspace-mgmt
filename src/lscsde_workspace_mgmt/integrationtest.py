@@ -10,7 +10,7 @@ from kubernetes_asyncio.client import (
     V1PodSpec,
     V1Container
 )
-from .k8sio import AnalyticsWorkspaceClient, AnalyticsWorkspaceBindingClient
+from .k8sio import AnalyticsWorkspaceClient, AnalyticsWorkspaceBindingClient, EventClient
 from .objects import AnalyticsWorkspace, AnalyticsWorkspaceStatus, AnalyticsWorkspaceBinding
 from .managers import AnalyticsWorkspaceManager
 from logging import Logger
@@ -111,7 +111,8 @@ class TestWorkspaceClient:
         api_client = ApiClient()
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.log.info("Setting up AnalyticsWorkspaceClient")
-        client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log)
+        event_client = EventClient(api_client=api_client, log = self.log)
+        client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log, event_client=event_client)
         name = "example-jupyter-workspace"
         namespace = "default"
         self.log.info("Getting {name} from {namespace} namespace")
@@ -143,7 +144,8 @@ class TestWorkspaceClient:
         api_client = ApiClient()
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.log.info("Setting up AnalyticsWorkspaceClient")
-        client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log)
+        event_client = EventClient(api_client = api_client, log = self.log)
+        client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log, event_client=event_client)
         namespace = "default"
         name = "test-workspace-list"
         omocker = ObjectsMocker()
@@ -179,7 +181,8 @@ class TestWorkspaceClient:
         api_client = ApiClient()
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.log.info("Setting up AnalyticsWorkspaceClient")
-        client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log)
+        event_client = EventClient(api_client=api_client, log = self.log)
+        client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log, event_client = event_client)
         omocker = ObjectsMocker()
         mocked_workspace = omocker.mock_workspace("integration-test-crud")
         adapter = TypeAdapter(AnalyticsWorkspace)
@@ -213,8 +216,9 @@ class TestWorkspaceClient:
         api_client = ApiClient()
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.log.info("Setting up AnalyticsWorkspaceClient")
-        workspace_client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log)
-        binding_client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log)
+        event_client = EventClient(api_client = api_client, log = self.log)
+        workspace_client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log, event_client=event_client)
+        binding_client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log, event_client=event_client)
         omocker = ObjectsMocker()
         workspace_adapter = TypeAdapter(AnalyticsWorkspace)
         workspace_binding_adapter = TypeAdapter(AnalyticsWorkspaceBinding)
@@ -250,7 +254,8 @@ class TestWorkspaceBindingClient:
         api_client = ApiClient()
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.log.info("Setting up AnalyticsWorkspaceBindingClient")
-        client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log)
+        event_client = EventClient(api_client = api_client, log = self.log)
+        client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log, event_client = event_client)
         name = "test-workspacebinding-get"
         namespace = "default"
         username = "test.user"
@@ -277,7 +282,8 @@ class TestWorkspaceBindingClient:
         api_client = ApiClient()
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.log.info("Setting up AnalyticsWorkspaceBindingClient")
-        client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log)
+        event_client = EventClient(api_client = api_client, log = self.log)
+        client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log, event_client = event_client)
         name = "test-workspacebinding-list"
         username = "test.user"
         workspace = "some-workspace"
@@ -304,7 +310,8 @@ class TestWorkspaceBindingClient:
         api_client = ApiClient()
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.log.info("Setting up AnalyticsWorkspaceClient")
-        client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log)
+        event_client = EventClient(api_client=api_client, log = self.log)
+        client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log, event_client = event_client)
         omocker = ObjectsMocker()
 
         created_workspace_binding = await omocker.create_workspace_binding(client, "integration-test-crud", "test.user", "some-workspace")
@@ -331,8 +338,9 @@ class TestWorkspaceBindingClient:
         api_client = ApiClient()
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.log.info("Setting up AnalyticsWorkspaceClient")
-        workspace_client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log)
-        binding_client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log)
+        event_client = EventClient(api_client = api_client, log = self.log)
+        workspace_client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log, event_client=event_client)
+        binding_client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log, event_client=event_client)
         omocker = ObjectsMocker()
         mocked_workspace1 = omocker.mock_workspace("test-list-by-username1")
         mocked_workspace2 = omocker.mock_workspace("test-list-by-username2")
@@ -363,8 +371,9 @@ class TestWorkspaceBindingClient:
         api_client = ApiClient()
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.log.info("Setting up AnalyticsWorkspaceClient")
-        workspace_client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log)
-        binding_client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log)
+        event_client = EventClient(api_client = api_client, log = self.log)
+        workspace_client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log, event_client = event_client)
+        binding_client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log, event_client = event_client)
         omocker = ObjectsMocker()
         mocked_workspace1 = omocker.mock_workspace("test-list-by-username-apostrophe-1")
         mocked_workspace2 = omocker.mock_workspace("test-list-by-username-apostrophe-2")
@@ -395,8 +404,9 @@ class TestWorkspaceBindingClient:
         api_client = ApiClient()
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.log.info("Setting up AnalyticsWorkspaceClient")
-        workspace_client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log)
-        binding_client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log)
+        event_client = EventClient(api_client = api_client, log = self.log)
+        workspace_client = AnalyticsWorkspaceClient(k8s_api=custom_objects_api, log = self.log, event_client = event_client)
+        binding_client = AnalyticsWorkspaceBindingClient(k8s_api=custom_objects_api, log = self.log, event_client = event_client)
         omocker = ObjectsMocker()
         mocked_workspace1 = omocker.mock_workspace("test-list-by-username-apostrophe-2-1")
         mocked_workspace2 = omocker.mock_workspace("test-list-by-username-apostrophe-2-2")
