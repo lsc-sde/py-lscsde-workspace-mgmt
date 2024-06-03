@@ -1,3 +1,4 @@
+from datetime import datetime
 from .k8sio import (
     AnalyticsWorkspaceClient,
     AnalyticsWorkspaceBindingClient,
@@ -41,13 +42,13 @@ class AnalyticsWorkspaceManager:
 
         return permitted_workspaces
 
-    async def get_permitted_workspaces(self, namespace : str, username : str):
+    async def get_permitted_workspaces(self, namespace : str, username : str, date_now = datetime.today()):
         permitted_workspaces = await self.get_workspaces_for_user(namespace, username)
         sorted_workspaces = sorted(
             permitted_workspaces.values(), key=lambda x: x.spec.display_name
         )
         converter = AnalyticsWorkspaceConverter()
-        return [converter.to_workspace_dict(item) for item in sorted_workspaces]
+        return [converter.to_workspace_dict(item, date_now = date_now) for item in sorted_workspaces]
         
     async def mount_workspace(self, pod : V1Pod, storage_class_name, mount_prefix, storage_prefix : str = "", read_only : bool = False, mount_path = ""):
         metadata : V1ObjectMeta = pod.metadata

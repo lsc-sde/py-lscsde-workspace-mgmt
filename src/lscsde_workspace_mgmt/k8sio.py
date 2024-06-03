@@ -366,12 +366,26 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
             namespace = namespace,
             username = username
             )
-        bound_workspaces = list(set([x.spec.workspace for x in bindings]))
+        bound_workspaces = {x.metadata.name:x.spec for x in bindings}
         workspaces = []
-        for bound_workspace in bound_workspaces:
+        for bound_workspace in bound_workspaces.keys():
             try:
-                workspace = await self.get(namespace = namespace, name = bound_workspace)
-                workspaces.append(workspace)
+                workspace_name : str = bound_workspaces[bound_workspace].workspace
+
+                if workspace_name not in [x.metadata.name for x in workspaces]:
+                    workspace = await self.get(namespace = namespace, name = workspace_name)
+                    
+                    if workspace != None:
+                        if bound_workspaces[bound_workspace].expires < workspace.spec.validity.expires:
+                            workspace.spec.validity.expires = bound_workspaces[bound_workspace].expires
+
+                        workspaces.append(workspace)
+                else:
+                    for workspace in workspaces:
+                        if workspace.metadata.name == workspace_name:
+                            if bound_workspaces[bound_workspace].expires < workspace.spec.validity.expires:
+                                workspace.spec.validity.expires = bound_workspaces[bound_workspace].expires
+    
             except ApiException as e:
                 if e.status == 404:
                     self.log.error(f"Workspace {bound_workspace} referenced by user {username} on {namespace} does not exist")

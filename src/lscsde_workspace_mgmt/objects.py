@@ -21,12 +21,12 @@ from .models import (
 )
 
 class AnalyticsWorkspaceConverter:
-    def days_until_expiry(self, time_str):
+    def days_until_expiry(self, time_str, date_now = datetime.today()):
         ws_end_date = datetime.strptime(time_str, "%Y-%m-%d")
-        ws_days_left: timedelta = ws_end_date - datetime.today()
+        ws_days_left: timedelta = ws_end_date - date_now
         return ws_days_left
     
-    def to_workspace_dict(self, workspace : AnalyticsWorkspace):
+    def to_workspace_dict(self, workspace : AnalyticsWorkspace, date_now = datetime.today()):
         contents = {}
         contents["display_name"] = workspace.spec.display_name
         contents["description"] = workspace.spec.description
@@ -70,5 +70,5 @@ class AnalyticsWorkspaceConverter:
         contents["slug"] = workspace.metadata.name
         contents["start_date"] = workspace.spec.validity.available_from
         contents["end_date"] = workspace.spec.validity.expires
-        contents["ws_days_left"] = self.days_until_expiry(workspace.spec.validity.expires)
+        contents["ws_days_left"] = self.days_until_expiry(workspace.spec.validity.expires, date_now=date_now)
         return contents

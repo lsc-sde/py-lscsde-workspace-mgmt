@@ -14,6 +14,7 @@ from .k8sio import AnalyticsWorkspaceClient, AnalyticsWorkspaceBindingClient, Ev
 from .objects import AnalyticsWorkspace, AnalyticsWorkspaceStatus, AnalyticsWorkspaceBinding
 from .managers import AnalyticsWorkspaceManager
 from logging import Logger
+from datetime import datetime
 
 class ObjectsMocker:
     
@@ -40,7 +41,7 @@ class ObjectsMocker:
 
         return await client.create(translated_workspace_binding, append_label = append_label)
         
-    def mock_workspace_binding(self, name, username, workspace):
+    def mock_workspace_binding(self, name, username, workspace, expires = '2124-02-26'):
         return {
             'apiVersion': 'xlscsde.nhs.uk/v1',
             'kind': 'AnalyticsWorkspaceBinding',
@@ -51,7 +52,7 @@ class ObjectsMocker:
                 'namespace': 'default'
             },
             'spec': {
-                'expires': '2124-02-26',
+                'expires': expires,
                 'username': username,
                 'workspace': workspace
             }
@@ -235,6 +236,8 @@ class TestWorkspaceClient:
         workspace_binding3 = await omocker.recreate_workspace_binding(client = binding_client, binding = mocked_workspace_binding3, append_label = False)
 
         workspaces = await workspace_client.list_by_username(binding_client = binding_client, namespace = "default", username = "integration-test-crud-unlinked-workspace-1")
+        
+        print(workspaces)
         assert len(workspaces) == 1
 
         await workspace_client.delete(body = workspace1)
@@ -446,13 +449,13 @@ class TestWorkspaceManager:
         mocked_workspace2 = omocker.mock_workspace("manager-test-list-by-username2", display_name = "A workspace")
         mocked_workspace3 = omocker.mock_workspace("manager-test-list-by-username3", display_name= "B workspace")
         mocked_workspace4 = omocker.mock_workspace("manager-test-list-by-username4", display_name= "C workspace")
-        mocked_workspace_binding1 = omocker.mock_workspace_binding("manager-integration-test-crud1", "manager-integration-test-crud1", mocked_workspace1["metadata"]["name"])
-        mocked_workspace_binding2 = omocker.mock_workspace_binding("managerintegration-test-crud2", "manager-integration-test-crud1", mocked_workspace2["metadata"]["name"])
-        mocked_workspace_binding3 = omocker.mock_workspace_binding("managerintegration-test-crud3", "manager-integration-test-crud2", mocked_workspace2["metadata"]["name"])
-        mocked_workspace_binding4 = omocker.mock_workspace_binding("managerintegration-test-crud4", "manager-integration-test-crud2", mocked_workspace3["metadata"]["name"])
+        mocked_workspace_binding1 = omocker.mock_workspace_binding("manager-integration-test-crud1", "manager-integration-test-crud1", mocked_workspace1["metadata"]["name"], expires="2024-02-01")
+        mocked_workspace_binding2 = omocker.mock_workspace_binding("managerintegration-test-crud2", "manager-integration-test-crud1", mocked_workspace2["metadata"]["name"], expires="2024-01-01")
+        mocked_workspace_binding3 = omocker.mock_workspace_binding("managerintegration-test-crud3", "manager-integration-test-crud2", mocked_workspace2["metadata"]["name"], expires="2023-12-01")
+        mocked_workspace_binding4 = omocker.mock_workspace_binding("managerintegration-test-crud4", "manager-integration-test-crud2", mocked_workspace3["metadata"]["name"], expires="2024-12-01")
         mocked_workspace_binding5 = omocker.mock_workspace_binding("managerintegration-test-crud5", "manager-integration-test-crud3", mocked_workspace2["metadata"]["name"])
-        mocked_workspace_binding6 = omocker.mock_workspace_binding("managerintegration-test-crud6", "manager-integration-test-crud1", mocked_workspace4["metadata"]["name"])
-        mocked_workspace_binding7 = omocker.mock_workspace_binding("managerintegration-test-crud7", "manager-integration-test-crud1", mocked_workspace1["metadata"]["name"])
+        mocked_workspace_binding6 = omocker.mock_workspace_binding("managerintegration-test-crud6", "manager-integration-test-crud1", mocked_workspace4["metadata"]["name"], expires="2023-12-01")
+        mocked_workspace_binding7 = omocker.mock_workspace_binding("managerintegration-test-crud7", "manager-integration-test-crud1", mocked_workspace1["metadata"]["name"], expires="2023-11-01")
         workspace1 = await omocker.recreate_workspace(client = workspace_manager.workspace_client, workspace = mocked_workspace1)
         workspace2 = await omocker.recreate_workspace(client = workspace_manager.workspace_client, workspace = mocked_workspace2)
         workspace3 = await omocker.recreate_workspace(client = workspace_manager.workspace_client, workspace = mocked_workspace3)
@@ -464,24 +467,37 @@ class TestWorkspaceManager:
         workspace_binding6 = await omocker.recreate_workspace_binding(client = workspace_manager.binding_client, binding = mocked_workspace_binding6)
         workspace_binding7 = await omocker.recreate_workspace_binding(client = workspace_manager.binding_client, binding = mocked_workspace_binding7)
 
-        permitted_workspaces = await workspace_manager.get_permitted_workspaces("default", "manager-integration-test-crud1")
+        date_now = datetime(2023, 12, 1)
+
+        permitted_workspaces = await workspace_manager.get_permitted_workspaces("default", "manager-integration-test-crud1", date_now=date_now)
         assert len(permitted_workspaces) == 2
         assert permitted_workspaces[0]["display_name"] == "A workspace"
         assert permitted_workspaces[0]["slug"] == workspace2.metadata.name 
+        assert permitted_workspaces[0]["end_date"] == "2024-01-01"
+        assert permitted_workspaces[0]["ws_days_left"].days == 31
         assert permitted_workspaces[1]["display_name"] == "Z workspace"
         assert permitted_workspaces[1]["slug"] == workspace1.metadata.name
+        assert permitted_workspaces[1]["end_date"] == "2023-11-01"
+        assert permitted_workspaces[1]["ws_days_left"].days == -30
+        
 
-        permitted_workspaces = await workspace_manager.get_permitted_workspaces("default", "manager-integration-test-crud2")
+        permitted_workspaces = await workspace_manager.get_permitted_workspaces("default", "manager-integration-test-crud2", date_now=date_now)
         assert len(permitted_workspaces) == 2
         assert permitted_workspaces[0]["display_name"] == "A workspace"
         assert permitted_workspaces[0]["slug"] == workspace2.metadata.name 
+        assert permitted_workspaces[0]["end_date"] == "2023-12-01"
+        assert permitted_workspaces[0]["ws_days_left"].days == 0
         assert permitted_workspaces[1]["display_name"] == "B workspace"
         assert permitted_workspaces[1]["slug"] == workspace3.metadata.name
+        assert permitted_workspaces[1]["end_date"] == "2024-12-01"
+        assert permitted_workspaces[1]["ws_days_left"].days == 366
 
-        permitted_workspaces = await workspace_manager.get_permitted_workspaces("default", "manager-integration-test-crud3")
+        permitted_workspaces = await workspace_manager.get_permitted_workspaces("default", "manager-integration-test-crud3", date_now=date_now)
         assert len(permitted_workspaces) == 1
         assert permitted_workspaces[0]["display_name"] == "A workspace"
         assert permitted_workspaces[0]["slug"] == workspace2.metadata.name
+        assert permitted_workspaces[0]["end_date"] == "2124-02-26"
+        assert permitted_workspaces[0]["ws_days_left"].days == 36611
 
         await workspace_manager.workspace_client.delete(body = workspace1)
         await workspace_manager.workspace_client.delete(body = workspace2)
