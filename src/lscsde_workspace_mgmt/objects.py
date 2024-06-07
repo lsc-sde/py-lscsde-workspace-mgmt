@@ -32,6 +32,7 @@ class AnalyticsWorkspaceConverter:
         contents["description"] = workspace.spec.description
         
         if workspace.spec.jupyter_workspace:
+            contents["workspace_definition"] = workspace.spec.jupyter_workspace
             contents["kubespawner_override"] = {}
             contents["kubespawner_override"]["image"] = workspace.spec.jupyter_workspace.image
             extra_labels = {}
