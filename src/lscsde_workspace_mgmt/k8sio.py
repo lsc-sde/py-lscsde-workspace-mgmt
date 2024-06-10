@@ -488,6 +488,9 @@ class PersistentVolumeClaimClient:
     def __init__(self, api_client : client.ApiClient, log : Logger):
         self.api = client.CoreV1Api(api_client)
         self.log = log
+        self.default_storage_class_name : str = getenv("DEFAULT_STORAGE_CLASS", "jupyter-default") 
+        self.default_storage_access_modes : list[str] = getenv("DEFAULT_STORAGE_ACCESS_MODES", "ReadWriteMany").split(",")
+        self.default_storage_capacity : str = getenv("DEFAULT_STORAGE_CAPACITY", "1Gi")
         
     async def get(self, name: str, namespace: str) -> V1PersistentVolumeClaim:
         self.log.info(f"Searching for PVC {name} on {namespace} exists")
@@ -498,7 +501,16 @@ class PersistentVolumeClaimClient:
         
         return response.items[0]
 
-    async def create_if_not_exists(self, name: str, namespace: str, storage_class_name : str, labels: dict[str, str] = {}, access_modes : list[str]=["ReadWriteMany"], storage_requested : str = "10Gi"):
+    async def create_if_not_exists(self, name: str, namespace: str, storage_class_name : str = None, labels: dict[str, str] = {}, access_modes : list[str]=None, storage_requested : str = None):
+        if not storage_class_name:
+            storage_class_name = self.default_storage_class_name
+
+        if not access_modes:
+            access_modes = self.default_storage_access_modes
+
+        if not storage_requested:
+            storage_requested = self.default_storage_capacity
+        
         pvc = await self.get(name, namespace)
         if not pvc:
             self.log.info(f"PVC {name} on {namespace} does not exist.")
