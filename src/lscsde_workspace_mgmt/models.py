@@ -47,7 +47,7 @@ class JupyterWorkspaceSpec(BaseModel):
     extra_labels : Optional[dict[str, str]] = Field(alias="extraLabels", default = None)
     default_uri : Optional[str] = Field(alias="defaultUri", default = None)
     node_selector : Optional[dict[str, any]]  = Field(alias="nodeSelector", default=None)
-    tolerations: Optional[dict[str, any]]  = Field(alias="tolerations", default=None)
+    tolerations: Optional[list[any]]  = Field(alias="tolerations", default=None)
     resources: Optional[dict[str, any]]  = Field(alias="resources", default=None)
     additional_storage: Optional[list[JupyterWorkspaceStorage]]  = Field(alias="additionalStorage", default=None)
     persistent_volume_claim: Optional[JupyterWorkspacePersistentVolumeClaim] = Field(alias="persistentVolumeClaim", default=JupyterWorkspacePersistentVolumeClaim())
