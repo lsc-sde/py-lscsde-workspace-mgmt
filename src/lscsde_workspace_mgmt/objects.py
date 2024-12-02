@@ -42,19 +42,19 @@ class AnalyticsWorkspaceConverter:
             contents["kubespawner_override"]["extra_labels"] = extra_labels
 
             if workspace.spec.jupyter_workspace.resources:
-                mem_guarantee = workspace.spec.jupyter_workspace.resources.get("requests").get("memory")
+                mem_guarantee = workspace.spec.jupyter_workspace.resources["requests"]["memory"]
                 if mem_guarantee:
                     contents["kubespawner_override"]["mem_guarantee"] = mem_guarantee
 
-                mem_limit = workspace.spec.jupyter_workspace.resources.get("limits").get("memory")
+                mem_limit = workspace.spec.jupyter_workspace.resources["limits"]["memory"]
                 if mem_limit:
                     contents["kubespawner_override"]["mem_limit"] = mem_limit
 
-                cpu_guarantee = workspace.spec.jupyter_workspace.resources.get("requests").get("cpu")
+                cpu_guarantee = workspace.spec.jupyter_workspace.resources["requests"]["cpu"]
                 if cpu_guarantee:
                     contents["kubespawner_override"]["cpu_guarantee"] = cpu_guarantee
 
-                cpu_limit = workspace.spec.jupyter_workspace.resources.get("limits").get("cpu")
+                cpu_limit = workspace.spec.jupyter_workspace.resources["limits"]["cpu"]
                 if cpu_limit:
                     contents["kubespawner_override"]["cpu_limit"] = cpu_limit
 

@@ -51,6 +51,8 @@ class TestWorkspace:
         assert "2124-02-26" == workspace.spec.validity.expires
         assert "Example jupyter workspace" == workspace.spec.display_name
         assert "This is an example jupyter workspace, and can be largely ignored\n" == workspace.spec.description
+        assert workspace.spec.jupyter_workspace != None
+        assert workspace.spec.jupyter_workspace.node_selector != None
 
     def test_workspace_conversion_to_dict(self):
         adaptor = TypeAdapter(AnalyticsWorkspace)
@@ -116,7 +118,27 @@ class TestWorkspace:
                 'description': 'This is an example jupyter workspace, and can be largely ignored\n', 
                 'displayName': 'Example jupyter workspace', 
                 'jupyterWorkspace': {
-                    'image': 'jupyter/datascience-notebook:latest'
+                    'image': 'jupyter/datascience-notebook:latest',
+                    'nodeSelector': {
+                        'lsc-sde.nhs.uk/nodeType': 'datascience-large'
+                    },
+                    'resources': {
+                        'limits': {
+                            'cpu': 0.25,
+                            'memory': '512M'
+                        },
+                        'requests': {
+                            'cpu': 0.15,
+                            'memory': '256M'
+                        }
+                    },
+                    'tolerations': [
+                        {
+                            'effect': 'NoSchedule',
+                            'key': 'sdeAppType',
+                            'value': 'datascience-large'
+                        }
+                    ]
                 }, 
                 'validity': {
                     'availableFrom': '2024-02-26', 
