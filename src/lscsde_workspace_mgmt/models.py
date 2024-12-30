@@ -2,6 +2,7 @@ from datetime import date,datetime, timedelta
 from kubernetes_asyncio.client.models import V1ObjectMeta
 from .exceptions import InvalidLabelFormatException
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from typing_extensions import TypedDict
 from typing import Optional
 from pydantic.dataclasses import dataclass
 import re 
@@ -40,15 +41,26 @@ class JupyterWorkspacePersistentVolumeClaim(BaseModel):
     name : Optional[str] = Field(alias="name", default=None)
     storage_class_name : Optional[str] = Field(alias="storageClassName", default=None)
 
+
+class JupyterWorkspaceSpecResources(TypedDict):
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra='allow')
+
+class JupyterWorkspaceSpecNodeSelector(TypedDict):
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra='allow')
+
+
+class JupyterWorkspaceSpecToleration(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra='allow')
+
 class JupyterWorkspaceSpec(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra='allow')
 
     image : Optional[str] = Field(default=None)
     extra_labels : Optional[dict[str, str]] = Field(alias="extraLabels", default = None)
     default_uri : Optional[str] = Field(alias="defaultUri", default = None)
-    node_selector : Optional[dict[str, any]]  = Field(alias="nodeSelector", default=None)
-    tolerations: Optional[list[any]]  = Field(alias="tolerations", default=None)
-    resources: Optional[dict[str, any]]  = Field(alias="resources", default=None)
+    node_selector : Optional[JupyterWorkspaceSpecNodeSelector]  = Field(alias="nodeSelector", default=None)
+    tolerations: Optional[list[JupyterWorkspaceSpecToleration]]  = Field(alias="tolerations", default=None)
+    resources: Optional[JupyterWorkspaceSpecResources]  = Field(alias="resources", default=None)
     additional_storage: Optional[list[JupyterWorkspaceStorage]]  = Field(alias="additionalStorage", default=None)
     persistent_volume_claim: Optional[JupyterWorkspacePersistentVolumeClaim] = Field(alias="persistentVolumeClaim", default=JupyterWorkspacePersistentVolumeClaim())
 
