@@ -98,3 +98,85 @@ class AnalyticsWorkspace(BaseModel):
     metadata : Optional[KubernetesMetadata] = Field(alias="metadata", default=KubernetesMetadata())
     spec : Optional[AnalyticsWorkspaceSpec] = Field(alias="spec", default=AnalyticsWorkspaceSpec())
     status : Optional[AnalyticsWorkspaceStatus] = Field(alias="status", default = AnalyticsWorkspaceStatus())
+
+class AnalyticsDataSourcePublisherContact(BaseModel):
+    name : Optional[str] = Field(alias="name", default=None)
+    role : Optional[str] = Field(alias="role", default=None)
+
+class AnalyticsDataSourcePublisher(BaseModel):
+    organisation : Optional[str] = Field(alias="organisation", default=None)
+    contact : Optional[AnalyticsDataSourcePublisherContact] = Field(alias="contact", default=AnalyticsDataSourcePublisherContact())
+
+class AnalyticsDataSourceProject(BaseModel):
+    id : Optional[str] = Field(alias="id", default=None)
+    
+class AnalyticsDataSourceConnectionString(BaseModel):
+    secret_name : Optional[str] = Field(alias="secretName", default=None)
+    value : Optional[str] = Field(alias="value", default=None)
+
+class AnalyticsDataSourceSecret(BaseModel):
+    secret_name : Optional[str] = Field(alias="secretName", default=None)
+
+class AnalyticsDataSourceSecretWithKey(AnalyticsDataSourceSecret):
+    secret_key : Optional[str] = Field(alias="secretKey", default=None)
+
+class AnalyticsDataSourceDataBricksConnection(BaseModel):
+    host_name : Optional[str] = Field(alias="hostName", default=None)
+    http_path : Optional[str] = Field(alias="httpPath", default=None)
+    personal_access_token : Optional[AnalyticsDataSourceSecretWithKey] = Field(alias="personalAccessToken", default=None)
+    oauth2_token : Optional[AnalyticsDataSourceSecretWithKey] = Field(alias="oauth2Token", default=None)
+    service_principle : Optional[AnalyticsDataSourceSecret] = Field(alias="servicePrinciple", default=None)
+
+class AnalyticsApproval(BaseModel):
+    type : Optional[str] = Field(alias="type", default=None)
+    name : Optional[str] = Field(alias="name", default=None)
+    email : Optional[str] = Field(alias="email", default=None)
+    job_title : Optional[str] = Field(alias="jobTitle", default=None)
+    approval_given : Optional[str] = Field(alias="approvalGiven", default=None)
+
+
+class AnalyticsDataSourceConnection(BaseModel):
+    type : Optional[str] = Field(alias="type", default=None)
+    name : Optional[str] = Field(alias="name", default=None)
+    connection_string : Optional[AnalyticsDataSourceConnectionString] = Field(alias="connectionString", default=None)
+    databricks_connection : Optional[AnalyticsDataSourceDataBricksConnection] = Field(alias="databricksConnection", default=None)
+
+
+class AnalyticsDataSourceSpec(BaseModel):
+    type : Optional[str] = Field(alias="type", default="Uploaded")
+    display_name : Optional[str] = Field(alias="displayName", default=None)
+    description : Optional[str] = Field(alias="description", default=None)
+    license : Optional[str] = Field(alias="license", default=None)
+    publisher : Optional[AnalyticsDataSourcePublisher] = Field(alias="publisher", default=AnalyticsDataSourcePublisher())
+    project : Optional[AnalyticsDataSourceProject] = Field(alias="project", default=AnalyticsDataSourceProject())
+    connections : Optional[list[AnalyticsDataSourceConnection]] = Field(alias="connections", default=None)
+    approvals : Optional[list[AnalyticsApproval]] = Field(alias="approvals", default=None)
+
+class AnalyticsDataSourceBindingStatus(BaseModel):
+    status_text : Optional[str] = Field(alias="statusText", default="Waiting")
+
+class AnalyticsDataSourceStatus(BaseModel):
+    status_text : Optional[str] = Field(alias="statusText", default="Waiting")
+    last_active_check : Optional[str] = Field(alias="lastActiveCheck", default="Waiting")
+
+class AnalyticsDataSourceBindingSpec(BaseModel):
+    comments : Optional[str] = Field(alias="comments", default=None)
+    workspace : Optional[str] = Field(alias="workspace", default=None)
+    expires : Optional[str] = Field(alias="expires", default=None)
+    datasource : Optional[str] = Field(alias="datasource", default=None)
+    approvals : Optional[list[AnalyticsApproval]] = Field(alias="approvals", default=None)
+
+
+class AnalyticsDataSource(BaseModel):
+    api_version : Optional[str] = Field(alias="apiVersion", default="xlscsde.nhs.uk/v1")
+    kind : Optional[str] = Field(alias="kind", default="AnalyticsDataSource")
+    metadata : Optional[KubernetesMetadata] = Field(alias="metadata", default=KubernetesMetadata())
+    spec : Optional[AnalyticsDataSourceSpec] = Field(alias="spec", default=AnalyticsDataSourceSpec())
+    status : Optional[AnalyticsDataSourceStatus] = Field(alias="status", default = AnalyticsDataSourceStatus())
+
+class AnalyticsDataSourceBinding(BaseModel):
+    api_version : Optional[str] = Field(alias="apiVersion", default="xlscsde.nhs.uk/v1")
+    kind : Optional[str] = Field(alias="kind", default="AnalyticsDataSourceBinding")
+    metadata : Optional[KubernetesMetadata] = Field(alias="metadata", default=KubernetesMetadata())
+    spec : Optional[AnalyticsDataSourceBindingSpec] = Field(alias="spec", default=AnalyticsDataSourceBindingSpec())
+    status : Optional[AnalyticsDataSourceBindingStatus] = Field(alias="status", default = AnalyticsDataSourceBindingStatus())

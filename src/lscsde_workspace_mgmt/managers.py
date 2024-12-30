@@ -2,15 +2,19 @@ from datetime import datetime
 from .k8sio import (
     AnalyticsWorkspaceClient,
     AnalyticsWorkspaceBindingClient,
-    EventClient,
     PersistentVolumeClaimClient,
     V1ObjectMeta,
     V1Pod
 )
 
-from .objects import (
+from .eventclient import EventClient
+
+from .models import (
     AnalyticsWorkspace,
-    AnalyticsWorkspaceBinding,
+    AnalyticsWorkspaceBinding
+)
+
+from .objects import (
     AnalyticsWorkspaceConverter
 )
 
