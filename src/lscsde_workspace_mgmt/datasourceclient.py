@@ -30,7 +30,7 @@ class AnalyticsDataSourceClient(KubernetesNamespacedCustomClient):
             log = log, 
             group = "xlscsde.nhs.uk",
             version = "v1",
-            plural = "AnalyticsDataSources",
+            plural = "analyticsdatasources",
             kind = "AnalyticsDataSource"
         )
         self.event_client = event_client

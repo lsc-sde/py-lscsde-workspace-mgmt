@@ -2,6 +2,8 @@ from datetime import datetime
 from .k8sio import (
     AnalyticsWorkspaceClient,
     AnalyticsWorkspaceBindingClient,
+    AnalyticsDataSourceClient,
+    AnalyticsDataSourceBindingClient,
     PersistentVolumeClaimClient,
     V1ObjectMeta,
     V1Pod
@@ -27,6 +29,15 @@ from kubernetes_asyncio.client import (
     ApiClient
 )
 from logging import Logger
+
+class AnalyticsDataSourceManager:
+    def __init__(self, api_client : ApiClient, log : Logger, reporting_controller : str = "xlscsde.nhs.uk/unspecified-controller", reporting_user = "Unknown User"):
+        custom_objects_api = CustomObjectsApi(api_client=api_client)
+        self.event_client = EventClient(api_client=api_client,log = log, reporting_controller = reporting_controller, reporting_user=reporting_user)
+        self.datasource_client = AnalyticsDataSourceClient(custom_objects_api, log, event_client=self.event_client)
+        self.binding_client = AnalyticsDataSourceBindingClient(custom_objects_api, log, event_client=self.event_client)
+        self.pvc_client = PersistentVolumeClaimClient(api_client, log)
+        self.log = log
 
 class AnalyticsWorkspaceManager:
     def __init__(self, api_client : ApiClient, log : Logger, reporting_controller : str = "xlscsde.nhs.uk/unspecified-controller", reporting_user = "Unknown User"):
@@ -103,3 +114,8 @@ class AnalyticsWorkspaceManager:
                 name = workspace.metadata.name,
                 status = workspace.status
                 )
+            
+class AnalyticsManager:
+    def __init__(self, api_client : ApiClient, log : Logger, reporting_controller : str = "xlscsde.nhs.uk/unspecified-controller", reporting_user = "Unknown User"):
+        self.workspace = AnalyticsWorkspaceManager(api_client, log, reporting_controller, reporting_user)
+        self.datasource = AnalyticsDataSourceManager(api_client, log, reporting_controller, reporting_user)
