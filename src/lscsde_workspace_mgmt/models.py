@@ -192,3 +192,27 @@ class AnalyticsDataSourceBinding(BaseModel):
     metadata : Optional[KubernetesMetadata] = Field(alias="metadata", default=KubernetesMetadata())
     spec : Optional[AnalyticsDataSourceBindingSpec] = Field(alias="spec", default=AnalyticsDataSourceBindingSpec())
     status : Optional[AnalyticsDataSourceBindingStatus] = Field(alias="status", default = AnalyticsDataSourceBindingStatus())
+
+class AnalyticsCrateSpecRepository(BaseModel):
+    url : Optional[str] = Field(alias="url", default=None)
+    branch : Optional[str] = Field(alias="branch", default="main")
+    secret_name : Optional[str] = Field(alias="secretName", default=None)
+    secret_key : Optional[str] = Field(alias="secretKey", default=None)
+
+class AnalyticsCrateSpec(BaseModel):
+    display_name : Optional[str] = Field(alias="displayName", default=None)
+    description : Optional[str] = Field(alias="description", default=None)
+    path : Optional[str] = Field(alias="path", default="/ro-crate-metadata.json")
+    repo : Optional[AnalyticsCrateSpecRepository] = Field(alias="repo", default=None)
+        
+class AnalyticsCrateStatus(BaseModel):
+    status_text : Optional[str] = Field(alias="statusText", default=None)
+    commit_id : Optional[str] = Field(alias="commitId", default=None)
+    workspace : Optional[str] = Field(alias="workspace", default=None)
+
+class AnalyticsCrate(BaseModel):
+    api_version : Optional[str] = Field(alias="apiVersion", default="xlscsde.nhs.uk/v1")
+    kind : Optional[str] = Field(alias="kind", default="AnalyticsDataSourceBinding")
+    metadata : Optional[KubernetesMetadata] = Field(alias="metadata", default=KubernetesMetadata())
+    spec : Optional[AnalyticsCrateSpec] = Field(alias="spec", default=AnalyticsCrateSpec())
+    status : Optional[AnalyticsCrateStatus] = Field(alias="status", default = AnalyticsCrateStatus())
