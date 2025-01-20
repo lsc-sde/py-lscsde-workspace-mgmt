@@ -16,6 +16,7 @@ from .managers import AnalyticsWorkspaceManager
 from logging import Logger
 from datetime import datetime
 
+# This class provides mocked objects for the various tests in this
 class ObjectsMocker:
     
     async def create_workspace(self, client : AnalyticsWorkspaceClient, name : str, display_name : str = "Example jupyter workspace"):
@@ -100,9 +101,11 @@ class ObjectsMocker:
         created_workspace_binding : AnalyticsWorkspaceBinding = await client.create(translated_workspace_binding, append_label)
         return created_workspace_binding
 
+# This class performs a number of tests to ensure it can perform basic operations on AnalyticsWorkspaces in the current kubernetes instance.
 class TestWorkspaceClient:
     log = Logger("TestWorkspaceClient")
 
+    # Checks if the client can request a AnalyticsWorkspace object
     @pytest.mark.asyncio
     async def test_get(self):
         self.log.info("Getting Configuration")
@@ -136,6 +139,7 @@ class TestWorkspaceClient:
         assert "This is an example jupyter workspace, and can be largely ignored\n" == response.spec.description
         await client.delete(body = created_workspace)
     
+    # Checks if the client can request a lsit of AnalyticsWorkspace resources
     @pytest.mark.asyncio
     async def test_list(self):
         self.log.info("Getting Configuration")
@@ -173,6 +177,7 @@ class TestWorkspaceClient:
         
         await client.delete(body = created_workspace)
 
+    # Checks if the client can create, read, update, and delete AnalyticsWorkspace resources
     @pytest.mark.asyncio
     async def test_crud(self):
         self.log.info("Getting Configuration")
@@ -208,6 +213,7 @@ class TestWorkspaceClient:
         deleted_workspace = await client.delete(body = replaced_workspace)
         print(deleted_workspace)
 
+    # Checks if the client can list by username on an unlinked resource
     @pytest.mark.asyncio
     async def test_list_by_username_unlinked_workspace(self):
         self.log.info("Getting Configuration")
@@ -245,9 +251,11 @@ class TestWorkspaceClient:
         await binding_client.delete(body = workspace_binding2)
         await binding_client.delete(body = workspace_binding3)
         
+# This class performs a number of tests to ensure it can perform basic operations on AnalyticsWorkspaceBindings in the current kubernetes instance.
 class TestWorkspaceBindingClient:
     log = Logger("TestWorkspaceBindingClient")
 
+    # Checks if the client can request a AnalyticsWorkspaceBinding object
     @pytest.mark.asyncio
     async def test_get(self):
         self.log.info("Getting Configuration")
@@ -276,6 +284,7 @@ class TestWorkspaceBindingClient:
         assert "2124-02-26" == response.spec.expires
         await client.delete(body = created_workspace_binding)
         
+    # Checks if the client can request a list of AnalyticsWorkspaceBinding objects
     @pytest.mark.asyncio
     async def test_list(self):
         self.log.info("Getting Configuration")
@@ -304,6 +313,7 @@ class TestWorkspaceBindingClient:
         assert "2124-02-26" == response.spec.expires
         await client.delete(body = created_workspace_binding)
         
+    # Checks if the client can create, read, update and delete an AnalyticsWorkspaceBinding resource
     @pytest.mark.asyncio
     async def test_crud(self):
         self.log.info("Getting Configuration")
@@ -332,6 +342,7 @@ class TestWorkspaceBindingClient:
         deleted_workspace = await client.delete(body = replaced_workspace_binding)
         print(deleted_workspace)
 
+    # Checks if the client can request a list of AnalyticsWorkspaceBinding resources based upon their workspace
     @pytest.mark.asyncio
     async def test_list_by_username(self):
         self.log.info("Getting Configuration")

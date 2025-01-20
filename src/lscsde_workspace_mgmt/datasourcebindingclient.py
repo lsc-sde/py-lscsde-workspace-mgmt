@@ -18,6 +18,7 @@ from os import getenv
 from uuid import uuid4
 from pytz import utc
 
+# This class allows developers to interact with AnalyticsDataSourceBinding objects on kubernetes
 class AnalyticsDataSourceBindingClient(KubernetesNamespacedCustomClient):
     adaptor = TypeAdapter(AnalyticsDataSourceBinding)
     def __init__(self, k8s_api: client.CustomObjectsApi, log: Logger, event_client : EventClient):
@@ -31,14 +32,20 @@ class AnalyticsDataSourceBindingClient(KubernetesNamespacedCustomClient):
         )
         self.event_client = event_client
 
+    # Gets an individual AnalyticsDataSourceBinding
     async def get(self, namespace, name):
         result = await super().get(namespace, name)
         return self.adaptor.validate_python(result)
     
+    # Lists the AnalyticsDataSourceBindings in a specified namespace
     async def list(self, namespace, **kwargs):
         result = await super().list(namespace, **kwargs)
         return [self.adaptor.validate_python(item) for item in result["items"]]
 
+    # Lists the AnalyticsDataSourceBindings in a specified namespace which belong to a specific workspace
+    #
+    # If a binding does not have the relevant labels defined, the service will assign the label automatically based upon the workspace. 
+    # This makes the query more performant when querying etcd.
     async def list_by_workspace(self, namespace, workspace):
         no_label = await self.list(namespace = namespace, label_selector = f"!xlscsde.nhs.uk/workspace")
         for item in no_label:
@@ -59,6 +66,7 @@ class AnalyticsDataSourceBindingClient(KubernetesNamespacedCustomClient):
 
         return await self.list(namespace = namespace, label_selector = f"xlscsde.nhs.uk/workspace={workspace}")
 
+    # Creates a AnalyticsDataSourceBinding resource
     async def create(self, body : AnalyticsDataSourceBinding, append_label : bool = True):
         contents = self.adaptor.dump_python(body, by_alias=True)
         
@@ -74,6 +82,7 @@ class AnalyticsDataSourceBindingClient(KubernetesNamespacedCustomClient):
         await self.event_client.DataSourceBindingUpdated(created_binding)
         return created_binding
 
+    # Patches a AnalyticsDataSourceBinding resource
     async def patch(self, namespace : str = None, name : str = None, patch_body : dict = None, body : AnalyticsDataSourceBinding = None):
         if not patch_body:
             if not body:
@@ -106,6 +115,7 @@ class AnalyticsDataSourceBindingClient(KubernetesNamespacedCustomClient):
         await self.event_client.DataSourceBindingUpdated(updated_binding)
         return updated_binding
 
+    # Patches a AnalyticsDataSourceBinding resources status segment
     async def patch_status(self, namespace : str, name : str, status : AnalyticsDataSourceBindingStatus):
         status_adapter = TypeAdapter(AnalyticsDataSourceBindingStatus)
         body = [{"op": "replace", "path": "/status", "value": status_adapter.dump_python(status, by_alias=True)}] 
@@ -116,6 +126,7 @@ class AnalyticsDataSourceBindingClient(KubernetesNamespacedCustomClient):
         )
         return self.adaptor.validate_python(result)
 
+    # Replaces a AnalyticsDataSourceBinding resource with the one provided
     async def replace(self, body : AnalyticsDataSourceBinding, append_label : bool = True):
         contents = self.adaptor.dump_python(body, by_alias=True)
         if append_label:
@@ -130,6 +141,7 @@ class AnalyticsDataSourceBindingClient(KubernetesNamespacedCustomClient):
         await self.event_client.DataSourceBindingUpdated(updated_binding)
         return updated_binding
     
+    # Deletes a AnalyticsDataSourceBinding resource
     async def delete(self, body : AnalyticsDataSourceBinding = None, namespace : str = None, name : str = None):
         if body:
             if not namespace:

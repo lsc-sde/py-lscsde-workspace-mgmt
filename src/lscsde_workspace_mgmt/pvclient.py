@@ -15,7 +15,7 @@ from os import getenv
 from uuid import uuid4
 from pytz import utc
 
-
+# Client used for interacting with PersistentVolumeClaim resources in kubernetes
 class PersistentVolumeClaimClient:
     def __init__(self, api_client : client.ApiClient, log : Logger):
         self.api = client.CoreV1Api(api_client)
@@ -24,6 +24,7 @@ class PersistentVolumeClaimClient:
         self.default_storage_access_modes : list[str] = getenv("DEFAULT_STORAGE_ACCESS_MODES", "ReadWriteMany").split(",")
         self.default_storage_capacity : str = getenv("DEFAULT_STORAGE_CAPACITY", "1Gi")
         
+    # gets a specific PVC
     async def get(self, name: str, namespace: str) -> V1PersistentVolumeClaim:
         self.log.info(f"Searching for PVC {name} on {namespace} exists")
         response : V1PersistentVolumeClaimList = await self.api.list_namespaced_persistent_volume_claim(namespace, field_selector = f"metadata.name={name}")
@@ -33,6 +34,7 @@ class PersistentVolumeClaimClient:
         
         return response.items[0]
 
+    # create a specific PVC if it doesn't already exist
     async def create_if_not_exists(self, name: str, namespace: str, storage_class_name : str = None, labels: dict[str, str] = {}, access_modes : list[str]=None, storage_requested : str = None):
         if not storage_class_name:
             storage_class_name = self.default_storage_class_name
@@ -67,6 +69,7 @@ class PersistentVolumeClaimClient:
 
         return pvc
     
+    # mounts a PVC into a pod
     async def mount(self, pod: V1Pod, storage_name : str, namespace: str, storage_class_name : str, mount_path : str, read_only : bool = False) -> V1Pod:
         self.log.info(f"Attempting to mount {storage_name} on {namespace}...")
         storage : V1PersistentVolumeClaim = await self.create_if_not_exists(storage_name, namespace, storage_class_name)

@@ -1,3 +1,4 @@
+# Represents an error where a user is not assigned any valid workspaces
 class NoAssignedValidWorkspaces(Exception):
     def __init__(self, user):
         self.user = user
@@ -14,6 +15,7 @@ class InvalidLabelFormatException(Exception):
         self.message = message
         super().__init__(self.message)
 
+# Represents an exception where a workspace is not found in the labels from jupyterhub
 class WorkspaceNotFoundException(Exception):
     def __init__(self, namespace, name):
         self.name = name
