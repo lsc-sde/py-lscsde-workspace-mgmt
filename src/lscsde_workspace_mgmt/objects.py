@@ -6,17 +6,24 @@ from .models import (
     AnalyticsWorkspace
 )
 
-# The converter allows us to perform operations against an analytics workspace to convert them for use in other platforms
 class AnalyticsWorkspaceConverter:
+    """
+    The converter allows us to perform operations against an analytics workspace to convert them for use in other platforms
+    """
 
-    # calculates the number of days until the workspace or workspace binding expires
+    
     def days_until_expiry(self, time_str, date_now = datetime.today()):
+        """
+        Calculates the number of days until the workspace or workspace binding expires
+        """
         ws_end_date = datetime.strptime(time_str, "%Y-%m-%d")
         ws_days_left: timedelta = ws_end_date - date_now
         return ws_days_left
     
-    # converts the workspace to the dictionary used by kubespawner to create the pod resource
     def to_workspace_dict(self, workspace : AnalyticsWorkspace, date_now = datetime.today()):
+        """
+        Converts the workspace to the dictionary used by kubespawner to create the pod resource
+        """
         contents = {}
         contents["display_name"] = workspace.spec.display_name
         contents["description"] = workspace.spec.description

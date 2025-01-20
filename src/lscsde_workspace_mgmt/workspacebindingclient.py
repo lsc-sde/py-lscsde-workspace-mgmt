@@ -22,8 +22,10 @@ from os import getenv
 from uuid import uuid4
 from pytz import utc
 
-# Client for interacting with AnalyticsWorkspaceBindings
 class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
+    """
+    Client for interacting with AnalyticsWorkspaceBindings
+    """
     adaptor = TypeAdapter(AnalyticsWorkspaceBinding)
     def __init__(self, k8s_api: client.CustomObjectsApi, log: Logger, event_client : EventClient):
         super().__init__(
@@ -36,19 +38,28 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
         )
         self.event_client = event_client
 
-    # Gets a specific AnalyticsWorkspaceBinding resource
+    
     async def get(self, namespace, name):
+        """
+        Gets a specific AnalyticsWorkspaceBinding resource
+        """
         result = await super().get(namespace, name)
         return self.adaptor.validate_python(result)
     
-    # Lists AnalyticsWorkspaceBinding resources in the namespace supplied
+    
     async def list(self, namespace, **kwargs):
+        """
+        Lists AnalyticsWorkspaceBinding resources in the namespace supplied
+        """
         result = await super().list(namespace, **kwargs)
         return [self.adaptor.validate_python(item) for item in result["items"]]
 
-    # Lists AnalyticsWorkspaceBinding resources in the namespace supplied that match the username
-    # if the label doesn't exist, it will be patched into the definition to increase performance in etcd
     async def list_by_username(self, namespace, username):
+        """
+        Lists AnalyticsWorkspaceBinding resources in the namespace supplied that match the username
+        
+        If the label doesn't exist, it will be patched into the definition to increase performance in etcd
+        """
         helper = KubernetesHelper() 
         formatted_username = helper.format_as_label(username)
         no_label = await self.list(namespace = namespace, label_selector = f"!xlscsde.nhs.uk/username")
@@ -70,8 +81,11 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
 
         return await self.list(namespace = namespace, label_selector = f"xlscsde.nhs.uk/username={formatted_username}")
 
-    # Creates a AnalyticsWorkspaceBinding resource in the namespace supplied
+    
     async def create(self, body : AnalyticsWorkspaceBinding, append_label : bool = True):
+        """
+        Creates a AnalyticsWorkspaceBinding resource in the namespace supplied
+        """
         contents = self.adaptor.dump_python(body, by_alias=True)
         
         if append_label:
@@ -86,8 +100,11 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
         await self.event_client.WorkspaceBindingUpdated(created_binding)
         return created_binding
 
-    # Patches a AnalyticsWorkspaceBinding resource in the namespace supplied
+    
     async def patch(self, namespace : str = None, name : str = None, patch_body : dict = None, body : AnalyticsWorkspaceBinding = None):
+        """
+        Patches a AnalyticsWorkspaceBinding resource in the namespace supplied
+        """
         if not patch_body:
             if not body:
                 raise InvalidParameterException("Either namespace, name and patch_body or body must be provided")
@@ -119,8 +136,11 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
         await self.event_client.WorkspaceBindingUpdated(updated_binding)
         return updated_binding
 
-    # Patches the status of a AnalyticsWorkspaceBinding resource in the namespace supplied
+    
     async def patch_status(self, namespace : str, name : str, status : AnalyticsWorkspaceBindingStatus):
+        """
+        Patches the status of a AnalyticsWorkspaceBinding resource in the namespace supplied
+        """
         status_adapter = TypeAdapter(AnalyticsWorkspaceBindingStatus)
         body = [{"op": "replace", "path": "/status", "value": status_adapter.dump_python(status, by_alias=True)}] 
         result = await super().patch_status(
@@ -130,8 +150,11 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
         )
         return self.adaptor.validate_python(result)
 
-    # Replaces a AnalyticsWorkspaceBinding resource with the one supplied
+    
     async def replace(self, body : AnalyticsWorkspaceBinding, append_label : bool = True):
+        """
+        Replaces a AnalyticsWorkspaceBinding resource with the one supplied
+        """
         contents = self.adaptor.dump_python(body, by_alias=True)
         if append_label:
             contents["metadata"]["labels"]["xlscsde.nhs.uk/username"] = body.spec.username_as_label()
@@ -145,8 +168,11 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
         await self.event_client.WorkspaceBindingUpdated(updated_binding)
         return updated_binding
     
-    # deletes a AnalyticsWorkspaceBinding resource in the namespace supplied
+    
     async def delete(self, body : AnalyticsWorkspaceBinding = None, namespace : str = None, name : str = None):
+        """
+        Deletes a AnalyticsWorkspaceBinding resource in the namespace supplied
+        """
         if body:
             if not namespace:
                 namespace = body.metadata.namespace

@@ -20,8 +20,10 @@ from os import getenv
 from uuid import uuid4
 from pytz import utc
 
-# Client for interacting with AnalyticsWorkspacess
 class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
+    """
+    Client for interacting with AnalyticsWorkspacess
+    """
     adaptor = TypeAdapter(AnalyticsWorkspace)
 
     def __init__(self, k8s_api: client.CustomObjectsApi, log: Logger, event_client : EventClient):
@@ -35,19 +37,27 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
         )
         self.event_client = event_client
         
-    # Gets a specific AnalyticsWorkspace resource
+    
     async def get(self, namespace, name):
+        """
+        Gets a specific AnalyticsWorkspace resource
+        """
         result = await super().get(namespace, name)
         return self.adaptor.validate_python(result)
     
-    # Lists AnalyticsWorkspace resources in the namespace supplied
+    
     async def list(self, namespace, **kwargs):
+        """
+        Lists AnalyticsWorkspace resources in the namespace supplied
+        """
         result = await super().list(namespace, **kwargs)
         
         return [self.adaptor.validate_python(item) for item in result["items"]]
     
-    # Lists AnalyticsWorkspace resources in the namespace supplied that match the username
     async def list_by_username(self, binding_client : AnalyticsWorkspaceBindingClient, namespace : str, username : str):
+        """
+        Lists AnalyticsWorkspace resources in the namespace supplied that match the username
+        """
         bindings = await binding_client.list_by_username(
             namespace = namespace,
             username = username
@@ -80,8 +90,10 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
         
         return workspaces     
             
-    # Creates a AnalyticsWorkspace resource in the namespace supplied
     async def create(self, body : AnalyticsWorkspace):
+        """
+        Creates a AnalyticsWorkspace resource in the namespace supplied
+        """
         result = await super().create(
             namespace = body.metadata.namespace,
             body = self.adaptor.dump_python(body, by_alias=True)
@@ -90,8 +102,10 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
         await self.event_client.WorkspaceCreated(created_workspace)
         return created_workspace
 
-    # Patches a AnalyticsWorkspace resource in the namespace supplied
     async def patch(self, namespace : str = None, name : str = None, patch_body : dict = None, body : AnalyticsWorkspace = None):
+        """
+        Patches a AnalyticsWorkspace resource in the namespace supplied
+        """
         if not patch_body:
             if not body:
                 raise InvalidParameterException("Either namespace, name and patch_body or body must be provided")
@@ -124,8 +138,11 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
         await self.event_client.WorkspaceUpdated(updated_workspace)
         return updated_workspace
 
-    # Patches the status of an AnalyticsWorkspace resource in the namespace supplied
+    
     async def patch_status(self, namespace : str, name : str, status : AnalyticsWorkspaceStatus):
+        """
+        Patches the status of an AnalyticsWorkspace resource in the namespace supplied
+        """
         status_adapter = TypeAdapter(AnalyticsWorkspaceStatus)
         body = [{"op": "replace", "path": "/status", "value": status_adapter.dump_python(status, by_alias=True)}] 
         result = await super().patch_status(
@@ -135,8 +152,10 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
         )
         return self.adaptor.validate_python(result)
 
-    # Replaces a AnalyticsWorkspace resource with the one supplied
     async def replace(self, body : AnalyticsWorkspace):
+        """
+        Replaces a AnalyticsWorkspace resource with the one supplied
+        """
         result = await super().replace(
             namespace = body.metadata.namespace,
             name = body.metadata.name,
@@ -144,8 +163,10 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
         )
         return self.adaptor.validate_python(result)
         
-    # Deletes a AnalyticsWorkspace resource in the namespace supplied
     async def delete(self, body : AnalyticsWorkspace = None, namespace : str = None, name : str = None):
+        """
+        Deletes a AnalyticsWorkspace resource in the namespace supplied
+        """
         if body:
             if not namespace:
                 namespace = body.metadata.namespace

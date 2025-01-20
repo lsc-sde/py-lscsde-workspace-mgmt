@@ -30,8 +30,11 @@ from kubernetes_asyncio.client import (
 )
 from logging import Logger
 
-# creates a manager for Analytics Data sources, their associated bindings, events and pvc's.
 class AnalyticsDataSourceManager:
+    """
+    creates a manager for Analytics Data sources, their associated bindings, events and pvc's.
+    """
+
     def __init__(self, api_client : ApiClient, log : Logger, reporting_controller : str = "xlscsde.nhs.uk/unspecified-controller", reporting_user = "Unknown User"):
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.event_client = EventClient(api_client=api_client,log = log, reporting_controller = reporting_controller, reporting_user=reporting_user)
@@ -40,8 +43,11 @@ class AnalyticsDataSourceManager:
         self.pvc_client = PersistentVolumeClaimClient(api_client, log)
         self.log = log
 
-# creates a manager for Analytics Workspaces, their associated bindings, events and pvc's.
 class AnalyticsWorkspaceManager:
+    """
+    creates a manager for Analytics Workspaces, their associated bindings, events and pvc's.
+    """
+
     def __init__(self, api_client : ApiClient, log : Logger, reporting_controller : str = "xlscsde.nhs.uk/unspecified-controller", reporting_user = "Unknown User"):
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.event_client = EventClient(api_client=api_client,log = log, reporting_controller = reporting_controller, reporting_user=reporting_user)
@@ -50,8 +56,10 @@ class AnalyticsWorkspaceManager:
         self.pvc_client = PersistentVolumeClaimClient(api_client, log)
         self.log = log
 
-    # Gets a workspace for a user
     async def get_workspaces_for_user(self, namespace : str, username : str):
+        """
+        Gets a workspace for a user
+        """
         workspaces = await self.workspace_client.list_by_username(self.binding_client, namespace, username)
         permitted_workspaces : dict[str, AnalyticsWorkspace] = {}
         for workspace in workspaces:
@@ -60,8 +68,11 @@ class AnalyticsWorkspaceManager:
 
         return permitted_workspaces
 
-    # Gets the workspaces that are permitted for a user
+    
     async def get_permitted_workspaces(self, namespace : str, username : str, date_now = datetime.today()):
+        """
+        Gets the workspaces that are permitted for a user
+        """
         permitted_workspaces = await self.get_workspaces_for_user(namespace, username)
         sorted_workspaces = sorted(
             permitted_workspaces.values(), key=lambda x: x.spec.display_name
@@ -69,8 +80,11 @@ class AnalyticsWorkspaceManager:
         converter = AnalyticsWorkspaceConverter()
         return [converter.to_workspace_dict(item, date_now = date_now) for item in sorted_workspaces]
     
-    # Mounts the workspace persistent volume claims
+    
     async def mount_workspace(self, pod : V1Pod, storage_class_name, mount_prefix, storage_prefix : str = "", read_only : bool = False, mount_path = ""):
+        """
+        Mounts the workspace persistent volume claims
+        """
         metadata : V1ObjectMeta = pod.metadata
         namespace = metadata.namespace
         name = metadata.name
@@ -120,8 +134,10 @@ class AnalyticsWorkspaceManager:
                 status = workspace.status
                 )
             
-# A high level manager for both workspace and datasource
 class AnalyticsManager:
+    """
+    A high level manager for both workspace and datasource
+    """
     def __init__(self, api_client : ApiClient, log : Logger, reporting_controller : str = "xlscsde.nhs.uk/unspecified-controller", reporting_user = "Unknown User"):
         self.workspace = AnalyticsWorkspaceManager(api_client, log, reporting_controller, reporting_user)
         self.datasource = AnalyticsDataSourceManager(api_client, log, reporting_controller, reporting_user)
