@@ -1,5 +1,18 @@
-renderer: {
-  type: markdown,
-  descriptive_class_title: false,
-  render_toc: true
-}
+loaders:
+- type: python
+  search_path: [./src/lscsde_workspace_mgmt]
+renderer:
+  type: markdown
+  filename: docs/classes.md
+  render_toc: false
+  render_module_header_template: |
+    ---
+    title: lscsde-workspace-mgmt package
+    parent: Python Module
+    layout: page
+    grand_parent: Analytics Workspace Management Services
+    ---
+    
+    The following are the classes that are part of the lscsde-workspace-mgmt python package
+
+
