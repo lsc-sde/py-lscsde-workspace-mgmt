@@ -6,6 +6,11 @@ grand_parent: Analytics Workspace Management Services
 ---
 
 The following are the classes that are part of the lscsde-workspace-mgmt python package
+
+<a id="datasourcebindingclient"></a>
+
+# datasourcebindingclient
+
 <a id="datasourcebindingclient.AnalyticsDataSourceBindingClient"></a>
 
 ## AnalyticsDataSourceBindingClient Objects
@@ -105,22 +110,14 @@ async def delete(body: AnalyticsDataSourceBinding = None,
 
 Deletes a AnalyticsDataSourceBinding resource
 
----
-title: lscsde-workspace-mgmt package
-parent: Python Module
-layout: page
-grand_parent: Analytics Workspace Management Services
----
+<a id="k8sio"></a>
 
-The following are the classes that are part of the lscsde-workspace-mgmt python package
----
-title: lscsde-workspace-mgmt package
-parent: Python Module
-layout: page
-grand_parent: Analytics Workspace Management Services
----
+# k8sio
 
-The following are the classes that are part of the lscsde-workspace-mgmt python package
+<a id="eventclient"></a>
+
+# eventclient
+
 <a id="eventclient.EventClient"></a>
 
 ## EventClient Objects
@@ -301,14 +298,10 @@ async def DataSourceBindingDeleted(binding: AnalyticsDataSourceBinding,
 
 Records a data source binding was deleted
 
----
-title: lscsde-workspace-mgmt package
-parent: Python Module
-layout: page
-grand_parent: Analytics Workspace Management Services
----
+<a id="exceptions"></a>
 
-The following are the classes that are part of the lscsde-workspace-mgmt python package
+# exceptions
+
 <a id="exceptions.NoAssignedValidWorkspaces"></a>
 
 ## NoAssignedValidWorkspaces Objects
@@ -329,22 +322,14 @@ class WorkspaceNotFoundException(Exception)
 
 Represents an exception where a workspace is not found in the labels from jupyterhub
 
----
-title: lscsde-workspace-mgmt package
-parent: Python Module
-layout: page
-grand_parent: Analytics Workspace Management Services
----
+<a id="__init__"></a>
 
-The following are the classes that are part of the lscsde-workspace-mgmt python package
----
-title: lscsde-workspace-mgmt package
-parent: Python Module
-layout: page
-grand_parent: Analytics Workspace Management Services
----
+# \_\_init\_\_
 
-The following are the classes that are part of the lscsde-workspace-mgmt python package
+<a id="workspaceclient"></a>
+
+# workspaceclient
+
 <a id="workspaceclient.AnalyticsWorkspaceClient"></a>
 
 ## AnalyticsWorkspaceClient Objects
@@ -442,14 +427,10 @@ async def delete(body: AnalyticsWorkspace = None,
 
 Deletes a AnalyticsWorkspace resource in the namespace supplied
 
----
-title: lscsde-workspace-mgmt package
-parent: Python Module
-layout: page
-grand_parent: Analytics Workspace Management Services
----
+<a id="pvclient"></a>
 
-The following are the classes that are part of the lscsde-workspace-mgmt python package
+# pvclient
+
 <a id="pvclient.PersistentVolumeClaimClient"></a>
 
 ## PersistentVolumeClaimClient Objects
@@ -500,14 +481,10 @@ async def mount(pod: V1Pod,
 
 mounts a PVC into a pod
 
----
-title: lscsde-workspace-mgmt package
-parent: Python Module
-layout: page
-grand_parent: Analytics Workspace Management Services
----
+<a id="managers"></a>
 
-The following are the classes that are part of the lscsde-workspace-mgmt python package
+# managers
+
 <a id="managers.AnalyticsDataSourceManager"></a>
 
 ## AnalyticsDataSourceManager Objects
@@ -575,14 +552,10 @@ class AnalyticsManager()
 
 A high level manager for both workspace and datasource
 
----
-title: lscsde-workspace-mgmt package
-parent: Python Module
-layout: page
-grand_parent: Analytics Workspace Management Services
----
+<a id="namespacedclient"></a>
 
-The following are the classes that are part of the lscsde-workspace-mgmt python package
+# namespacedclient
+
 <a id="namespacedclient.KubernetesNamespacedCustomClient"></a>
 
 ## KubernetesNamespacedCustomClient Objects
@@ -673,14 +646,10 @@ async def delete(namespace: str, name: str)
 
 Deletes the requested resource
 
----
-title: lscsde-workspace-mgmt package
-parent: Python Module
-layout: page
-grand_parent: Analytics Workspace Management Services
----
+<a id="objects"></a>
 
-The following are the classes that are part of the lscsde-workspace-mgmt python package
+# objects
+
 <a id="objects.AnalyticsWorkspaceConverter"></a>
 
 ## AnalyticsWorkspaceConverter Objects
@@ -712,22 +681,14 @@ def to_workspace_dict(workspace: AnalyticsWorkspace,
 
 Converts the workspace to the dictionary used by kubespawner to create the pod resource
 
----
-title: lscsde-workspace-mgmt package
-parent: Python Module
-layout: page
-grand_parent: Analytics Workspace Management Services
----
+<a id="_version"></a>
 
-The following are the classes that are part of the lscsde-workspace-mgmt python package
----
-title: lscsde-workspace-mgmt package
-parent: Python Module
-layout: page
-grand_parent: Analytics Workspace Management Services
----
+# \_version
 
-The following are the classes that are part of the lscsde-workspace-mgmt python package
+<a id="datasourceclient"></a>
+
+# datasourceclient
+
 <a id="datasourceclient.AnalyticsDataSourceClient"></a>
 
 ## AnalyticsDataSourceClient Objects
@@ -825,14 +786,10 @@ async def delete(body: AnalyticsDataSource = None,
 
 Deletes a AnalyticsDataSource resource
 
----
-title: lscsde-workspace-mgmt package
-parent: Python Module
-layout: page
-grand_parent: Analytics Workspace Management Services
----
+<a id="models"></a>
 
-The following are the classes that are part of the lscsde-workspace-mgmt python package
+# models
+
 <a id="models.KubernetesHelper"></a>
 
 ## KubernetesHelper Objects
@@ -1901,22 +1858,14 @@ The specification of this resource
 
 The status of this resource
 
----
-title: lscsde-workspace-mgmt package
-parent: Python Module
-layout: page
-grand_parent: Analytics Workspace Management Services
----
+<a id="integrationtest"></a>
 
-The following are the classes that are part of the lscsde-workspace-mgmt python package
----
-title: lscsde-workspace-mgmt package
-parent: Python Module
-layout: page
-grand_parent: Analytics Workspace Management Services
----
+# integrationtest
 
-The following are the classes that are part of the lscsde-workspace-mgmt python package
+<a id="workspacebindingclient"></a>
+
+# workspacebindingclient
+
 <a id="workspacebindingclient.AnalyticsWorkspaceBindingClient"></a>
 
 ## AnalyticsWorkspaceBindingClient Objects
