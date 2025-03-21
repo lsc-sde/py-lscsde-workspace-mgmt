@@ -11,7 +11,7 @@ from .k8sio import (
 
 from .eventclient import EventClient
 
-from .models import AnalyticsWorkspace, AnalyticsWorkspaceBinding
+from .models import AnalyticsWorkspace
 
 from .objects import AnalyticsWorkspaceConverter
 

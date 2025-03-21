@@ -3,21 +3,16 @@ from .eventclient import EventClient
 
 from logging import Logger
 from kubernetes_asyncio import client
-from kubernetes_asyncio.client.exceptions import ApiException
 from pydantic import TypeAdapter
 from .exceptions import InvalidParameterException, InvalidLabelFormatException
 
 from .models import (
-    AnalyticsWorkspaceBinding,
     AnalyticsWorkspaceBindingStatus,
     AnalyticsWorkspaceBindingSpec,
     KubernetesHelper,
     AnalyticsWorkspaceBinding,
 )
 
-from os import getenv
-from uuid import uuid4
-from pytz import utc
 
 
 class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
@@ -63,7 +58,7 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
         helper = KubernetesHelper()
         formatted_username = helper.format_as_label(username)
         no_label = await self.list(
-            namespace=namespace, label_selector=f"!xlscsde.nhs.uk/username"
+            namespace=namespace, label_selector="!xlscsde.nhs.uk/username"
         )
         for item in no_label:
             if item.spec.username:

@@ -4,7 +4,6 @@ from kubernetes_asyncio import client
 from .models import (
     AnalyticsDataSource,
     AnalyticsDataSourceBinding,
-    AnalyticsWorkspaceBinding,
     AnalyticsWorkspace,
     AnalyticsWorkspaceBinding,
 )

@@ -12,8 +12,6 @@ from kubernetes_asyncio.client.models import (
     V1PersistentVolumeClaimList,
 )
 from os import getenv
-from uuid import uuid4
-from pytz import utc
 
 
 class PersistentVolumeClaimClient:

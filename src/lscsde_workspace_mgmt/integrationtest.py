@@ -1,6 +1,5 @@
 import pytest
 from pydantic import TypeAdapter
-from unittest.mock import Mock
 from kubernetes_asyncio.config import load_kube_config
 from kubernetes_asyncio.client import (
     CustomObjectsApi,
@@ -17,7 +16,6 @@ from .k8sio import (
 )
 from .objects import (
     AnalyticsWorkspace,
-    AnalyticsWorkspaceStatus,
     AnalyticsWorkspaceBinding,
 )
 from .managers import AnalyticsWorkspaceManager

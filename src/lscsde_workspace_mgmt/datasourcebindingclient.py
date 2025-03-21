@@ -11,9 +11,6 @@ from .models import (
     AnalyticsDataSourceBindingStatus,
 )
 
-from os import getenv
-from uuid import uuid4
-from pytz import utc
 
 
 class AnalyticsDataSourceBindingClient(KubernetesNamespacedCustomClient):
@@ -59,7 +56,7 @@ class AnalyticsDataSourceBindingClient(KubernetesNamespacedCustomClient):
         """
 
         no_label = await self.list(
-            namespace=namespace, label_selector=f"!xlscsde.nhs.uk/workspace"
+            namespace=namespace, label_selector="!xlscsde.nhs.uk/workspace"
         )
         for item in no_label:
             if item.spec.workspace:

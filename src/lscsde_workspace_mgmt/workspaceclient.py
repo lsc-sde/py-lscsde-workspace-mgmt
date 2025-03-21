@@ -16,9 +16,6 @@ from .models import (
     AnalyticsWorkspace,
 )
 
-from os import getenv
-from uuid import uuid4
-from pytz import utc
 
 
 class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):

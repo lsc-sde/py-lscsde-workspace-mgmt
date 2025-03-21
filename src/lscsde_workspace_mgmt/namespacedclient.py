@@ -1,8 +1,5 @@
 from logging import Logger
 from kubernetes_asyncio import client
-from os import getenv
-from uuid import uuid4
-from pytz import utc
 
 
 class KubernetesNamespacedCustomClient:
