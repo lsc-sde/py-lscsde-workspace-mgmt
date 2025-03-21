@@ -2,6 +2,7 @@ from ..models import KubernetesHelper
 import pytest
 from ..exceptions import InvalidLabelFormatException
 
+
 class TestKubernetesHelper:
     def test_format_label_basic(self):
         helper = KubernetesHelper()
