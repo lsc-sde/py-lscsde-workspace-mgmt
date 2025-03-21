@@ -36,6 +36,11 @@ path = "src/lscsde_workspace_mgmt/_version.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/lscsde_workspace_mgmt"]
 
+[dependency-groups]
+dev = [
+    "ruff>=0.11.2",
+]
+
 
 [tool.hatch.build]
 exclude = [
