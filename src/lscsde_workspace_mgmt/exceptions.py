@@ -27,6 +27,13 @@ class WorkspaceNotFoundException(Exception):
     """
 
     def __init__(self, namespace, name):
+        """
+        Initialize a WorkspaceNotFoundException.
+
+        Args:
+            namespace (str): The Kubernetes namespace where the pod is located
+            name (str): The name of the pod that is missing the workspace label
+        """
         self.name = name
         self.namespace = namespace
         self.message = (

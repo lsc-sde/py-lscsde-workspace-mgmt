@@ -16,10 +16,23 @@ from os import getenv
 
 class PersistentVolumeClaimClient:
     """
-    Client used for interacting with PersistentVolumeClaim resources in kubernetes
+    Client used for interacting with PersistentVolumeClaim resources in Kubernetes.
+
+    This client provides functionality to get, create, and mount PVCs to pods.
+    The default storage settings can be configured through environment variables:
+    - DEFAULT_STORAGE_CLASS: The default storage class to use (default: "jupyter-default")
+    - DEFAULT_STORAGE_ACCESS_MODES: The default access modes (default: "ReadWriteMany")
+    - DEFAULT_STORAGE_CAPACITY: The default storage capacity (default: "1Gi")
     """
 
     def __init__(self, api_client: client.ApiClient, log: Logger):
+        """
+        Initialize the PersistentVolumeClaimClient with kubernetes client and logger.
+
+        Args:
+            api_client (client.ApiClient): The Kubernetes API client to use for operations
+            log (Logger): Logger for recording operations and errors
+        """
         self.api = client.CoreV1Api(api_client)
         self.log = log
         self.default_storage_class_name: str = getenv(
@@ -32,7 +45,14 @@ class PersistentVolumeClaimClient:
 
     async def get(self, name: str, namespace: str) -> V1PersistentVolumeClaim:
         """
-        Gets a specific PVC
+        Gets a specific PersistentVolumeClaim by name in the specified namespace.
+
+        Args:
+            name (str): The name of the PVC to retrieve
+            namespace (str): The namespace where the PVC resides
+
+        Returns:
+            V1PersistentVolumeClaim: The PVC object if found, None otherwise
         """
         self.log.info(f"Searching for PVC {name} on {namespace} exists")
         response: V1PersistentVolumeClaimList = (
@@ -54,9 +74,20 @@ class PersistentVolumeClaimClient:
         labels: dict[str, str] = {},
         access_modes: list[str] = None,
         storage_requested: str = None,
-    ):
+    ) -> V1PersistentVolumeClaim:
         """
-        Create a specific PVC if it doesn't already exist
+        Create a specific PVC if it doesn't already exist in the specified namespace.
+
+        Args:
+            name (str): The name for the PVC
+            namespace (str): The namespace where the PVC should be created
+            storage_class_name (str, optional): The storage class to use. If None, uses default.
+            labels (dict[str, str], optional): Labels to apply to the PVC. Defaults to {}.
+            access_modes (list[str], optional): Access modes for the PVC. If None, uses default.
+            storage_requested (str, optional): Amount of storage to request. If None, uses default.
+
+        Returns:
+            V1PersistentVolumeClaim: The existing or newly created PVC
         """
         if not storage_class_name:
             storage_class_name = self.default_storage_class_name
@@ -95,7 +126,19 @@ class PersistentVolumeClaimClient:
         read_only: bool = False,
     ) -> V1Pod:
         """
-        mounts a PVC into a pod
+        Mounts a PersistentVolumeClaim into a pod. Creates the PVC if it doesn't exist.
+
+        Args:
+            pod (V1Pod): The pod to mount the volume to
+            storage_name (str): The name of the PVC
+            namespace (str): The namespace where the pod and PVC reside
+            storage_class_name (str): The storage class to use if creating the PVC
+            mount_path (str): The path in the container to mount the volume
+                             (defaults to "/mnt/{storage_name}" if empty)
+            read_only (bool, optional): Whether to mount the volume as read-only. Defaults to False.
+
+        Returns:
+            V1Pod: The modified pod with the volume and volume mount added
         """
         self.log.info(f"Attempting to mount {storage_name} on {namespace}...")
         storage: V1PersistentVolumeClaim = await self.create_if_not_exists(

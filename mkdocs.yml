@@ -1,0 +1,39 @@
+site_name: lscsde-workspace-mgmt
+site_description: LSCSDE Workspace Management Python Library
+site_author: NHS England
+repo_url: https://github.com/lsc-sde/py-lscsde-workspace-mgmt
+docs_dir: docs/source
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.expand
+    - navigation.indexes
+    - content.code.copy
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - admonition
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Usage: usage.md
+  - API Reference:
+      - Overview: api/index.md
+      - Models: api/models.md
+      - Workspace Client: api/workspaceclient.md
+      - Workspace Binding Client: api/workspacebindingclient.md
+      - Data Source Client: api/datasourceclient.md
+      - Data Source Binding Client: api/datasourcebindingclient.md
+      - Persistent Volume Claim Client: api/pvclient.md
+      - Event Client: api/eventclient.md
+      - Managers: api/managers.md
+      - Exceptions: api/exceptions.md
+      - Object Converters: api/objects.md
+  - Contribution Guide: contributing.md

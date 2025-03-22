@@ -19,7 +19,15 @@ from .models import (
 
 class AnalyticsDataSourceClient(KubernetesNamespacedCustomClient):
     """
-    This class allows developers to interact with AnalyticsDataSource objects on kubernetes
+    AnalyticsDataSourceClient provides an interface to interact with AnalyticsDataSource
+    custom resources in Kubernetes.
+
+    This client allows developers to perform CRUD operations on AnalyticsDataSource objects
+    such as creating, listing, updating, patching, and deleting resources. It also provides
+    specialized methods for working with AnalyticsDataSources in the context of workspaces.
+
+    The client handles serialization and deserialization of Kubernetes resources to and from
+    the AnalyticsDataSource model using Pydantic validation.
     """
 
     adaptor = TypeAdapter(AnalyticsDataSource)
@@ -27,6 +35,14 @@ class AnalyticsDataSourceClient(KubernetesNamespacedCustomClient):
     def __init__(
         self, k8s_api: client.CustomObjectsApi, log: Logger, event_client: EventClient
     ):
+        """
+        Initialize the AnalyticsDataSourceClient.
+
+        Args:
+            k8s_api (client.CustomObjectsApi): Kubernetes API client for custom resources
+            log (Logger): Logger instance for recording operations
+            event_client (EventClient): Client for publishing events related to AnalyticsDataSource operations
+        """
         super().__init__(
             k8s_api=k8s_api,
             log=log,
@@ -39,14 +55,28 @@ class AnalyticsDataSourceClient(KubernetesNamespacedCustomClient):
 
     async def get(self, namespace, name):
         """
-        Gets an individual AnalyticsDataSource
+        Gets an individual AnalyticsDataSource.
+
+        Args:
+            namespace (str): The namespace containing the resource
+            name (str): Name of the AnalyticsDataSource to retrieve
+
+        Returns:
+            AnalyticsDataSource: The retrieved and validated AnalyticsDataSource object
         """
         result = await super().get(namespace, name)
         return self.adaptor.validate_python(result)
 
     async def list(self, namespace, **kwargs):
         """
-        Lists the AnalyticsDataSource in a specified namespace
+        Lists the AnalyticsDataSource resources in a specified namespace.
+
+        Args:
+            namespace (str): The namespace to list resources from
+            **kwargs: Additional parameters to pass to the Kubernetes API
+
+        Returns:
+            list[AnalyticsDataSource]: List of AnalyticsDataSource objects in the namespace
         """
         result = await super().list(namespace, **kwargs)
 
@@ -59,7 +89,19 @@ class AnalyticsDataSourceClient(KubernetesNamespacedCustomClient):
         workspace: str,
     ):
         """
-        Lists the AnalyticsDataSource in a specified namespace for the workspace specified
+        Lists the AnalyticsDataSource resources in a specified namespace for the given workspace.
+
+        This method returns data sources that are bound to the specified workspace through
+        AnalyticsDataSourceBinding resources. It also adjusts expiration dates based on
+        binding-specific constraints.
+
+        Args:
+            binding_client (AnalyticsDataSourceBindingClient): Client for accessing binding resources
+            namespace (str): The namespace to list resources from
+            workspace (str): The workspace identifier to filter by
+
+        Returns:
+            list[AnalyticsDataSource]: List of AnalyticsDataSource objects bound to the workspace
         """
         bindings = await binding_client.list_by_workspace(
             namespace=namespace, workspace=workspace
@@ -108,9 +150,17 @@ class AnalyticsDataSourceClient(KubernetesNamespacedCustomClient):
 
     async def create(self, body: AnalyticsDataSource):
         """
-        Creates a AnalyticsDataSource resource
-        """
+        Creates a new AnalyticsDataSource resource.
 
+        Args:
+            body (AnalyticsDataSource): The AnalyticsDataSource object to create
+
+        Returns:
+            AnalyticsDataSource: The created AnalyticsDataSource with server-side fields populated
+
+        Fires:
+            DataSourceCreated event via the event_client
+        """
         result = await super().create(
             namespace=body.metadata.namespace,
             body=self.adaptor.dump_python(body, by_alias=True),
@@ -127,7 +177,26 @@ class AnalyticsDataSourceClient(KubernetesNamespacedCustomClient):
         body: AnalyticsDataSource = None,
     ):
         """
-        Patches a AnalyticsDataSource resource
+        Patches an existing AnalyticsDataSource resource.
+
+        This method can be called either with explicit namespace, name and patch_body parameters,
+        or with a complete AnalyticsDataSource object in the body parameter.
+
+        Args:
+            namespace (str, optional): The namespace containing the resource
+            name (str, optional): Name of the AnalyticsDataSource to patch
+            patch_body (dict, optional): JSON patch operations to apply
+            body (AnalyticsDataSource, optional): Complete AnalyticsDataSource object to derive patch from
+
+        Returns:
+            AnalyticsDataSource: The updated AnalyticsDataSource after patching
+
+        Raises:
+            InvalidParameterException: If neither the (namespace, name, patch_body) combination
+                                      nor the body parameter is provided
+
+        Fires:
+            DataSourceUpdated event via the event_client
         """
         if not patch_body:
             if not body:
@@ -175,7 +244,15 @@ class AnalyticsDataSourceClient(KubernetesNamespacedCustomClient):
         self, namespace: str, name: str, status: AnalyticsDataSourceStatus
     ):
         """
-        Patches a AnalyticsDataSource resources status segment
+        Patches the status segment of an AnalyticsDataSource resource.
+
+        Args:
+            namespace (str): The namespace containing the resource
+            name (str): Name of the AnalyticsDataSource to patch
+            status (AnalyticsDataSourceStatus): The new status to apply
+
+        Returns:
+            AnalyticsDataSource: The updated AnalyticsDataSource after patching the status
         """
         status_adapter = TypeAdapter(AnalyticsDataSourceStatus)
         body = [
@@ -190,7 +267,15 @@ class AnalyticsDataSourceClient(KubernetesNamespacedCustomClient):
 
     async def replace(self, body: AnalyticsDataSource):
         """
-        Replaces a AnalyticsDataSource resource with the one provided
+        Replaces an existing AnalyticsDataSource resource with the one provided.
+
+        Unlike patch, this completely replaces the existing resource with the new one.
+
+        Args:
+            body (AnalyticsDataSource): The new AnalyticsDataSource object to replace the existing one
+
+        Returns:
+            AnalyticsDataSource: The replaced AnalyticsDataSource with server-side fields updated
         """
         result = await super().replace(
             namespace=body.metadata.namespace,
@@ -203,7 +288,20 @@ class AnalyticsDataSourceClient(KubernetesNamespacedCustomClient):
         self, body: AnalyticsDataSource = None, namespace: str = None, name: str = None
     ):
         """
-        Deletes a AnalyticsDataSource resource
+        Deletes an AnalyticsDataSource resource.
+
+        This method first updates the status to "Deleting" before performing the actual deletion.
+
+        Args:
+            body (AnalyticsDataSource, optional): The AnalyticsDataSource object to delete
+            namespace (str, optional): The namespace containing the resource
+            name (str, optional): Name of the AnalyticsDataSource to delete
+
+        Returns:
+            dict: The Kubernetes API response for the delete operation
+
+        Fires:
+            DataSourceDeleted event via the event_client when a body is provided
         """
         if body:
             if not namespace:

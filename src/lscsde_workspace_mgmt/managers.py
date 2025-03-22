@@ -1,3 +1,20 @@
+"""
+Analytics Workspace Manager Module
+=================================
+
+This module provides manager classes that coordinate operations between different
+Kubernetes custom resources related to analytics workspaces and data sources.
+
+The managers serve as high-level interfaces that abstract away the details of
+interacting with individual Kubernetes clients, providing a simplified API for
+common operations like retrieving workspaces for users or mounting volumes.
+
+Classes:
+    - AnalyticsDataSourceManager: Manages operations for data sources and their bindings
+    - AnalyticsWorkspaceManager: Manages operations for workspaces and their bindings
+    - AnalyticsManager: Provides a unified interface to both workspace and datasource managers
+"""
+
 from datetime import datetime
 from .k8sio import (
     AnalyticsWorkspaceClient,
@@ -23,7 +40,17 @@ from logging import Logger
 
 class AnalyticsDataSourceManager:
     """
-    creates a manager for Analytics Data sources, their associated bindings, events and pvc's.
+    Manager for Analytics Data sources, their associated bindings, events and PVCs.
+
+    This class coordinates operations between data sources, bindings, and persistent
+    volume claims, providing a high-level interface for data source operations.
+
+    Attributes:
+        event_client (EventClient): Client for recording Kubernetes events
+        datasource_client (AnalyticsDataSourceClient): Client for data source operations
+        binding_client (AnalyticsDataSourceBindingClient): Client for data source binding operations
+        pvc_client (PersistentVolumeClaimClient): Client for PVC operations
+        log (Logger): Logger instance for recording operations
     """
 
     def __init__(
@@ -33,6 +60,17 @@ class AnalyticsDataSourceManager:
         reporting_controller: str = "xlscsde.nhs.uk/unspecified-controller",
         reporting_user="Unknown User",
     ):
+        """
+        Initialize the AnalyticsDataSourceManager.
+
+        Args:
+            api_client (ApiClient): Kubernetes API client
+            log (Logger): Logger instance
+            reporting_controller (str, optional): Controller name for event reporting.
+                Defaults to "xlscsde.nhs.uk/unspecified-controller".
+            reporting_user (str, optional): User name for event reporting.
+                Defaults to "Unknown User".
+        """
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.event_client = EventClient(
             api_client=api_client,
@@ -52,7 +90,17 @@ class AnalyticsDataSourceManager:
 
 class AnalyticsWorkspaceManager:
     """
-    creates a manager for Analytics Workspaces, their associated bindings, events and pvc's.
+    Manager for Analytics Workspaces, their associated bindings, events and PVCs.
+
+    This class coordinates operations between workspaces, bindings, and persistent
+    volume claims, providing a high-level interface for workspace operations.
+
+    Attributes:
+        event_client (EventClient): Client for recording Kubernetes events
+        workspace_client (AnalyticsWorkspaceClient): Client for workspace operations
+        binding_client (AnalyticsWorkspaceBindingClient): Client for workspace binding operations
+        pvc_client (PersistentVolumeClaimClient): Client for PVC operations
+        log (Logger): Logger instance for recording operations
     """
 
     def __init__(
@@ -62,6 +110,17 @@ class AnalyticsWorkspaceManager:
         reporting_controller: str = "xlscsde.nhs.uk/unspecified-controller",
         reporting_user="Unknown User",
     ):
+        """
+        Initialize the AnalyticsWorkspaceManager.
+
+        Args:
+            api_client (ApiClient): Kubernetes API client
+            log (Logger): Logger instance
+            reporting_controller (str, optional): Controller name for event reporting.
+                Defaults to "xlscsde.nhs.uk/unspecified-controller".
+            reporting_user (str, optional): User name for event reporting.
+                Defaults to "Unknown User".
+        """
         custom_objects_api = CustomObjectsApi(api_client=api_client)
         self.event_client = EventClient(
             api_client=api_client,
@@ -80,7 +139,18 @@ class AnalyticsWorkspaceManager:
 
     async def get_workspaces_for_user(self, namespace: str, username: str):
         """
-        Gets a workspace for a user
+        Gets workspaces that a user has access to.
+
+        Retrieves all workspaces that the specified user is allowed to access
+        based on workspace bindings.
+
+        Args:
+            namespace (str): Kubernetes namespace to search in
+            username (str): Username to check permissions for
+
+        Returns:
+            dict[str, AnalyticsWorkspace]: Dictionary of workspace name to workspace object
+            for all workspaces the user has access to
         """
         workspaces = await self.workspace_client.list_by_username(
             self.binding_client, namespace, username
@@ -96,7 +166,20 @@ class AnalyticsWorkspaceManager:
         self, namespace: str, username: str, date_now=datetime.today()
     ):
         """
-        Gets the workspaces that are permitted for a user
+        Gets the workspaces that are permitted for a user as dictionary objects.
+
+        Retrieves workspace information in a format suitable for use in APIs
+        or user interfaces, including display name, expiration dates, and
+        remaining days.
+
+        Args:
+            namespace (str): Kubernetes namespace to search in
+            username (str): Username to check permissions for
+            date_now (datetime, optional): Reference date for calculating days remaining.
+                Defaults to current date.
+
+        Returns:
+            list[dict]: List of workspace information dictionaries, sorted by display name
         """
         permitted_workspaces = await self.get_workspaces_for_user(namespace, username)
         sorted_workspaces = sorted(
@@ -118,7 +201,25 @@ class AnalyticsWorkspaceManager:
         mount_path="",
     ):
         """
-        Mounts the workspace persistent volume claims
+        Mounts the workspace persistent volume claims to a pod.
+
+        Configures a pod to mount the persistent volume claim associated with
+        a workspace. Updates the workspace status if needed.
+
+        Args:
+            pod (V1Pod): Kubernetes pod to mount the volume to
+            storage_class_name (str): Storage class to use if a new PVC is created
+            mount_prefix (str): Prefix to use for the mount path
+            storage_prefix (str, optional): Prefix to use for storage name. Defaults to "".
+            read_only (bool, optional): Whether to mount as read-only. Defaults to False.
+            mount_path (str, optional): Custom mount path. If empty, one will be generated.
+                Defaults to "".
+
+        Raises:
+            WorkspaceNotFoundException: If the pod does not have a workspace label
+
+        Returns:
+            V1Pod: The amended pod with volume mounts configured
         """
         metadata: V1ObjectMeta = pod.metadata
         namespace = metadata.namespace
@@ -172,7 +273,14 @@ class AnalyticsWorkspaceManager:
 
 class AnalyticsManager:
     """
-    A high level manager for both workspace and datasource
+    A high level manager for both workspace and datasource operations.
+
+    Provides unified access to both AnalyticsWorkspaceManager and
+    AnalyticsDataSourceManager through a single interface.
+
+    Attributes:
+        workspace (AnalyticsWorkspaceManager): Manager for workspace operations
+        datasource (AnalyticsDataSourceManager): Manager for datasource operations
     """
 
     def __init__(
@@ -182,6 +290,17 @@ class AnalyticsManager:
         reporting_controller: str = "xlscsde.nhs.uk/unspecified-controller",
         reporting_user="Unknown User",
     ):
+        """
+        Initialize the AnalyticsManager.
+
+        Args:
+            api_client (ApiClient): Kubernetes API client
+            log (Logger): Logger instance
+            reporting_controller (str, optional): Controller name for event reporting.
+                Defaults to "xlscsde.nhs.uk/unspecified-controller".
+            reporting_user (str, optional): User name for event reporting.
+                Defaults to "Unknown User".
+        """
         self.workspace = AnalyticsWorkspaceManager(
             api_client, log, reporting_controller, reporting_user
         )
