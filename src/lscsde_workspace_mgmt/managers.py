@@ -144,7 +144,7 @@ class AnalyticsWorkspaceManager:
         if not mount_path:
             mount_path = f"{mount_prefix}/{workspace_name}"
 
-        amended_pod = await self.pvc_client.mount(
+        amended_pod = await self.pvc_client.mount(  # noqa: F841
             pod=pod,
             storage_name=storage_name,
             namespace=namespace,
@@ -162,7 +162,7 @@ class AnalyticsWorkspaceManager:
             workspace.status.status_text = "Provisioned"
             update_status = True
 
-        if update_status == True:
+        if update_status is True:
             await self.workspace_client.patch_status(
                 namespace=workspace.metadata.namespace,
                 name=workspace.metadata.name,

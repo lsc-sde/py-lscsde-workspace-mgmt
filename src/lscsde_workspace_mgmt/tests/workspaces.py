@@ -54,11 +54,11 @@ class TestWorkspace:
             ws["description"]
             == "This is an example jupyter workspace, and can be largely ignored\n"
         )
-        assert ws["kubespawner_override"] != None
+        assert ws["kubespawner_override"] is not None
         assert (
             ws["kubespawner_override"]["image"] == "jupyter/datascience-notebook:latest"
         )
-        assert ws["kubespawner_override"]["extra_labels"] != None
+        assert ws["kubespawner_override"]["extra_labels"] is not None
         assert (
             ws["kubespawner_override"]["extra_labels"]["workspace"]
             == "example-jupyter-workspace"

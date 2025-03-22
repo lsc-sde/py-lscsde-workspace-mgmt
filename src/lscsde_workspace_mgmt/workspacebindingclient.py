@@ -14,7 +14,6 @@ from .models import (
 )
 
 
-
 class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
     """
     Client for interacting with AnalyticsWorkspaceBindings
@@ -82,7 +81,7 @@ class AnalyticsWorkspaceBindingClient(KubernetesNamespacedCustomClient):
                             }
                         ]
 
-                    patch_response = await self.patch(
+                    patch_response = await self.patch(  # noqa: F841
                         namespace=item.metadata.namespace,
                         name=item.metadata.name,
                         patch_body=patch_body,

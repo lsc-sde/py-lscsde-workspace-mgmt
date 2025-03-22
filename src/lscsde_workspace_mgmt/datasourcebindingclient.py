@@ -12,7 +12,6 @@ from .models import (
 )
 
 
-
 class AnalyticsDataSourceBindingClient(KubernetesNamespacedCustomClient):
     """
     This class allows developers to interact with AnalyticsDataSourceBinding objects on kubernetes
@@ -80,7 +79,7 @@ class AnalyticsDataSourceBindingClient(KubernetesNamespacedCustomClient):
                             }
                         ]
 
-                    patch_response = await self.patch(
+                    patch_response = await self.patch(  # noqa: F841
                         namespace=item.metadata.namespace,
                         name=item.metadata.name,
                         patch_body=patch_body,

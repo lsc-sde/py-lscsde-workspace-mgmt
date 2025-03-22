@@ -11,10 +11,10 @@ class TestDataSource:
         datasource = adaptor.validate_python(datasource_dict, strict=False)
         assert "ds-782b4a1f07234229980f75f2f651412a" == datasource.metadata.name
         assert "d4e6" == datasource.spec.project.id
-        assert None != datasource.spec.connections
+        assert datasource.spec.connections is not None
         assert 1 == len(datasource.spec.connections)
-        assert None != datasource.spec.connections[0].databricks_connection
-        assert None == datasource.spec.connections[0].connection_string
+        assert datasource.spec.connections[0].databricks_connection is not None
+        assert datasource.spec.connections[0].connection_string is None
         assert "test" == datasource.spec.connections[0].databricks_connection.host_name
         assert "/test" == datasource.spec.connections[0].databricks_connection.http_path
         assert "/test" == datasource.spec.connections[0].databricks_connection.http_path

@@ -300,8 +300,8 @@ class TestWorkspaceClient:
             k8s_api=custom_objects_api, log=self.log, event_client=event_client
         )
         omocker = ObjectsMocker()
-        workspace_adapter = TypeAdapter(AnalyticsWorkspace)
-        workspace_binding_adapter = TypeAdapter(AnalyticsWorkspaceBinding)
+        workspace_adapter = TypeAdapter(AnalyticsWorkspace)  # noqa: F841
+        workspace_binding_adapter = TypeAdapter(AnalyticsWorkspaceBinding)  # noqa: F841
 
         mocked_workspace1 = omocker.mock_workspace(
             "test-list-by-username-unlinked-workspace-1"
@@ -665,7 +665,7 @@ class TestWorkspaceManager:
         print(f"configuration = {configuration}")
         self.log.info("Connecting to client")
         api_client = ApiClient()
-        custom_objects_api = CustomObjectsApi(api_client=api_client)
+        custom_objects_api = CustomObjectsApi(api_client=api_client)  # noqa: F841
         self.log.info("Setting up AnalyticsWorkspaceClient")
         workspace_manager = AnalyticsWorkspaceManager(
             api_client=api_client, log=self.log
@@ -829,7 +829,7 @@ class TestWorkspaceManager:
             labels={"workspace": workspace.metadata.name},
         )
         pod.spec = V1PodSpec(containers=[V1Container(name="test")])
-        amended_pod = await workspace_manager.mount_workspace(
+        amended_pod = await workspace_manager.mount_workspace(  # noqa: F841
             pod,
             storage_class_name="hostpath",
             mount_prefix="/mnt",

@@ -17,7 +17,6 @@ from .models import (
 )
 
 
-
 class AnalyticsDataSourceClient(KubernetesNamespacedCustomClient):
     """
     This class allows developers to interact with AnalyticsDataSource objects on kubernetes
@@ -76,7 +75,7 @@ class AnalyticsDataSourceClient(KubernetesNamespacedCustomClient):
                         namespace=namespace, name=datasource_name
                     )
 
-                    if datasource != None:
+                    if datasource is not None:
                         if (
                             bound_datasources[bound_datasource].expires
                             < datasource.spec.validity.expires

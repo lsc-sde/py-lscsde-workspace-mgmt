@@ -17,7 +17,6 @@ from .models import (
 )
 
 
-
 class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
     """
     Client for interacting with AnalyticsWorkspacess
@@ -74,7 +73,7 @@ class AnalyticsWorkspaceClient(KubernetesNamespacedCustomClient):
                 if workspace_name not in [x.metadata.name for x in workspaces]:
                     workspace = await self.get(namespace=namespace, name=workspace_name)
 
-                    if workspace != None:
+                    if workspace is not None:
                         if (
                             bound_workspaces[bound_workspace].expires
                             < workspace.spec.validity.expires
